@@ -396,24 +396,37 @@ async function compararExcel() {
     const data = new Uint8Array(e.target.result);
     const workbook = XLSX.read(data, { type: 'array' });
     const hoja = workbook.Sheets[workbook.SheetNames[0]];
-    const datos = XLSX.utils.sheet_to_json(hoja);
-
+    
+    // Normalizamos encabezados
+    const datos = XLSX.utils.sheet_to_json(hoja, { header: 1 }); // Array de arrays
     if (datos.length === 0) {
       alert("El archivo está vacío o mal estructurado.");
       return;
     }
 
-    // Validar que exista columna 'Código'
-    if (!('Código' in datos[0])) {
-      alert("La hoja debe tener una columna llamada 'Código'.");
+    // Primera fila = encabezados
+    let encabezados = datos[0].map(h => 
+      String(h || "")
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quitar acentos
+        .replace(/\s+/g, "") // quitar espacios
+    );
+
+    // Buscamos columna que tenga 'codigo'
+    const idxCodigo = encabezados.findIndex(h => h.includes("codigo"));
+    if (idxCodigo === -1) {
+      alert("No se encontró ninguna columna que contenga 'Código'.");
       return;
     }
 
-    // Códigos en Excel y Firestore
-    const codigosExcel = datos.map(row => String(row['Código']).trim());
-    // Códigos en Excel y paquetes actualmente mostrados (filtrados o todos)
+    // Extraemos solo esa columna
+    const codigosExcel = datos.slice(1) // quitamos encabezado
+      .map(fila => String(fila[idxCodigo] || "").trim())
+      .filter(c => c.length > 0);
+
+    // Codigos en Firestore
     const codigosFirestore = (paquetesFiltrados.length > 0 ? paquetesFiltrados : paquetes)
-    .map(p => String(p.codigo).trim());
+      .map(p => String(p.codigo).trim());
 
     // Diferencias
     const enExcelNoFirestore = codigosExcel.filter(c => !codigosFirestore.includes(c));
