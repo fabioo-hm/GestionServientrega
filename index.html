@@ -137,6 +137,24 @@
                     </select>
                     <input type="date" id="filtro-fecha" placeholder="DD/MM/AAAA">
                 </div>
+
+                <div class="form-group">
+                    <label for="filtro-pago">Filtrar por método de pago:</label>
+                    <select id="filtro-pago">
+                        <option value="Todos">Todos</option>
+                        <option value="De_contado">De contado</option>
+                        <option value="Contraentrega">Contraentrega</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="filtro-contenido">Filtrar por contenido:</label>
+                    <select id="filtro-contenido">
+                        <option value="Todos">Todos</option>
+                        <option value="Mercancía">Mercancía</option>
+                        <option value="Documentos">Documentos</option>
+                    </select>
+                </div>
                 
                 <button onclick="aplicarFiltros()" class="btn">Aplicar Filtros</button>
                 <button onclick="limpiarFiltros()" class="btn btn-secondary">Limpiar Filtros</button>

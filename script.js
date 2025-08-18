@@ -98,7 +98,7 @@ function buscarPaquete() {
     
     if (paquete) {
         document.getElementById('info-codigo').textContent = paquete.codigo;
-        document.getElementById('info-direccion').textContent = paquete.direccion || 'Retiro en oficina';
+        document.getElementById('info-direccion').textContent = paquete.direccion || 'Entrega en dirección';
         document.getElementById('info-intentos').textContent = paquete.intentos;
         document.getElementById('nuevos-intentos').value = paquete.intentos;
         document.getElementById('info-paquete').classList.remove('hidden');
@@ -150,50 +150,61 @@ async function marcarComoEntregado(codigo) {
 
 // Aplicar múltiples filtros
 function aplicarFiltros() {
-    paquetesFiltrados = paquetes;
-    const repartidor = document.getElementById('filtro-repartidor').value;
-    const codigo = document.getElementById('filtro-codigo').value;
-    const estado = document.getElementById('filtro-estado').value;
-    const destino = document.getElementById('filtro-destino').value;
-    const fechaTipo = document.getElementById('filtro-fecha-tipo').value;
+    let paquetesFiltrados = [...paquetes]; // Copia del array original
+    
+    const repartidor = document.getElementById('filtro-repartidor').value.trim();
+    const codigo = document.getElementById('filtro-codigo').value.trim();
+    const estado = document.getElementById('filtro-estado').value.trim();
+    const destino = document.getElementById('filtro-destino').value.trim();
+    const fechaTipo = document.getElementById('filtro-fecha-tipo').value.trim();
     const fecha = document.getElementById('filtro-fecha').value;
-    
+
     // Filtro por repartidor
-    if (repartidor !== 'Todos') {
-        paquetesFiltrados = paquetesFiltrados.filter(p => p.repartidor === repartidor);
+    if (repartidor && repartidor !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.repartidor && p.repartidor.toLowerCase() === repartidor.toLowerCase()
+        );
     }
-    
+
     // Filtro por código
     if (codigo) {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
-            p.codigo.toLowerCase().includes(codigo.toLowerCase())
+            p.codigo && p.codigo.toLowerCase().includes(codigo.toLowerCase())
         );
     }
-    
+
     // Filtro por estado
-    if (estado !== 'Todos') {
-        paquetesFiltrados = paquetesFiltrados.filter(p => p.estado === estado);
+    if (estado && estado !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.estado && p.estado.toLowerCase() === estado.toLowerCase()
+        );
     }
-    
+
     // Filtro por destino
-    if (destino !== 'Todos') {
+    if (destino && destino !== 'Todos') {
         if (destino === 'No aplica') {
             paquetesFiltrados = paquetesFiltrados.filter(p => !p.destino);
         } else {
-            paquetesFiltrados = paquetesFiltrados.filter(p => p.destino === destino);
+            paquetesFiltrados = paquetesFiltrados.filter(p => 
+                p.destino && p.destino.toLowerCase() === destino.toLowerCase()
+            );
         }
     }
-    
+
     // Filtro por fecha
     if (fecha && fechaTipo !== 'todas') {
         const fechaFiltro = new Date(fecha);
         fechaFiltro.setHours(0, 0, 0, 0);
-        
+
         paquetesFiltrados = paquetesFiltrados.filter(p => {
+            if (!p.fecha) return false; // si no tiene fecha lo descartamos
+            
             const [day, month, year] = p.fecha.split('/');
+            if (!day || !month || !year) return false; // control de error
+
             const fechaPaquete = new Date(`${year}-${month}-${day}`);
             fechaPaquete.setHours(0, 0, 0, 0);
-            
+
             switch (fechaTipo) {
                 case 'antes':
                     return fechaPaquete < fechaFiltro;
@@ -206,7 +217,7 @@ function aplicarFiltros() {
             }
         });
     }
-    
+
     actualizarTabla(paquetesFiltrados);
 }
 
@@ -218,7 +229,7 @@ function exportarExcelFiltrado() {
         'Tipo de envío': p.envio,
         'Contenido': p.contenido,
         'Destino': p.destino || 'N/A',
-        'Dirección': p.direccion || 'Retiro en oficina',
+        'Dirección': p.direccion || 'Entrega en dirección',
         'Repartidor': p.repartidor || 'Sin asignar',
         'Intentos': p.intentos,
         'Estado': p.estado,
@@ -253,7 +264,7 @@ function actualizarTabla(paquetesMostrar = paquetes) {
     paquetesMostrar.forEach(paquete => {
         const row = tablaPaquetes.insertRow();
         row.insertCell(0).textContent = paquete.codigo;
-        row.insertCell(1).textContent = paquete.direccion || 'Retiro en oficina';
+        row.insertCell(1).textContent = paquete.direccion || 'Entrega en dirección';
         
         const repartidorCell = row.insertCell(2);
         
