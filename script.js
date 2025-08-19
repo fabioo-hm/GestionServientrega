@@ -9,7 +9,7 @@ const tablaPaquetes = document.getElementById('tabla-paquetes').getElementsByTag
 // Mostrar/ocultar campos de dirección según tipo de envío
 envioRadios.forEach(radio => {
     radio.addEventListener('change', function() {
-        direccionGroup.classList.toggle('hidden', this.value !== 'Retiro en Oficina');
+        direccionGroup.classList.toggle('hidden', this.value !== 'Entrega en dirección');
     });
 });
 
@@ -27,7 +27,14 @@ formPaquete.addEventListener('submit', function(e) {
     
     if (envio === 'Entrega en dirección') {
         destino = document.querySelector('input[name="destino"]:checked').value;
-        direccion = document.getElementById('direccion').value;
+        direccion = document.getElementById('direccion').value.trim();
+        // Si no escriben dirección, ponemos por defecto el texto
+        if (direccion === '') {
+            direccion = 'Entrega en dirección';
+        }
+    } else if (envio === 'Retiro en oficina') {
+        // Dirección por defecto para retiro
+        direccion = 'Retiro en oficina';
     }
     
     const nuevoPaquete = {
@@ -48,8 +55,9 @@ formPaquete.addEventListener('submit', function(e) {
     };
     
     guardarPaqueteFirestore(nuevoPaquete).then(() => {
-  cargarPaquetesFirestore();
-});
+        cargarPaquetesFirestore();
+    });
+    
     formPaquete.reset();
     alert('Paquete registrado con éxito!');
 });
@@ -98,7 +106,7 @@ function buscarPaquete() {
     
     if (paquete) {
         document.getElementById('info-codigo').textContent = paquete.codigo;
-        document.getElementById('info-direccion').textContent = paquete.direccion || 'Entrega en dirección';
+        document.getElementById('info-direccion').textContent = paquete.direccion;
         document.getElementById('info-intentos').textContent = paquete.intentos;
         document.getElementById('nuevos-intentos').value = paquete.intentos;
         document.getElementById('info-paquete').classList.remove('hidden');
@@ -229,7 +237,7 @@ function exportarExcelFiltrado() {
         'Tipo de envío': p.envio,
         'Contenido': p.contenido,
         'Destino': p.destino || 'N/A',
-        'Dirección': p.direccion || 'Entrega en dirección',
+        'Dirección': p.direccion,
         'Repartidor': p.repartidor || 'Sin asignar',
         'Intentos': p.intentos,
         'Estado': p.estado,
@@ -263,12 +271,21 @@ function actualizarTabla(paquetesMostrar = paquetes) {
     
     paquetesMostrar.forEach(paquete => {
         const row = tablaPaquetes.insertRow();
+
+        // Código
         row.insertCell(0).textContent = paquete.codigo;
-        row.insertCell(1).textContent = paquete.direccion || 'Entrega en dirección';
-        
-        const repartidorCell = row.insertCell(2);
-        
-        // Select para asignar repartidor
+
+        // Método de pago
+        row.insertCell(1).textContent = paquete.pago || 'N/A';
+
+        // Contenido
+        row.insertCell(2).textContent = paquete.contenido || 'N/A';
+
+        // Dirección
+        row.insertCell(3).textContent = paquete.direccion;
+
+        // Repartidor
+        const repartidorCell = row.insertCell(4);
         if (!paquete.repartidor && paquete.envio === 'Entrega en dirección') {
             const select = document.createElement('select');
             select.className = 'select-repartidor';
@@ -287,30 +304,37 @@ function actualizarTabla(paquetesMostrar = paquetes) {
         } else {
             repartidorCell.textContent = paquete.repartidor || 'N/A';
         }
-        
-        row.insertCell(3).textContent = paquete.destino || 'No aplica';
-        row.insertCell(4).textContent = paquete.intentos;
-        row.insertCell(5).textContent = paquete.fecha;
-        
-        const estadoCell = row.insertCell(6);
+
+        // Destino
+        row.insertCell(5).textContent = paquete.destino || 'No aplica';
+
+        // Intentos
+        row.insertCell(6).textContent = paquete.intentos;
+
+        // Fecha
+        row.insertCell(7).textContent = paquete.fecha;
+
+        // Estado
+        const estadoCell = row.insertCell(8);
         estadoCell.textContent = paquete.estado;
-        
-        const accionCell = row.insertCell(7);
+
+        // Acciones
+        const accionCell = row.insertCell(9);
         accionCell.className = 'accion-cell';
         
         // Botón para marcar como entregado
         if (
-        paquete.estado === 'Pendiente' &&
-        (
-            (paquete.envio === 'Entrega en dirección' && paquete.repartidor) ||
-            (paquete.envio !== 'Entrega en dirección')
-        )
+            paquete.estado === 'Pendiente' &&
+            (
+                (paquete.envio === 'Entrega en dirección' && paquete.repartidor) ||
+                (paquete.envio !== 'Entrega en dirección')
+            )
         ) {
-        const btnEntregado = document.createElement('button');
-        btnEntregado.textContent = 'Marcar como entregado';
-        btnEntregado.className = 'estado-btn entregado';
-        btnEntregado.onclick = () => marcarComoEntregado(paquete.codigo);
-        accionCell.appendChild(btnEntregado);
+            const btnEntregado = document.createElement('button');
+            btnEntregado.textContent = 'Marcar como entregado';
+            btnEntregado.className = 'estado-btn entregado';
+            btnEntregado.onclick = () => marcarComoEntregado(paquete.codigo);
+            accionCell.appendChild(btnEntregado);
         }
         
         // Botón para marcar como digitalizado
