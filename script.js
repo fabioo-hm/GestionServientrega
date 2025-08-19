@@ -166,11 +166,26 @@ function aplicarFiltros() {
     const destino = document.getElementById('filtro-destino').value.trim();
     const fechaTipo = document.getElementById('filtro-fecha-tipo').value.trim();
     const fecha = document.getElementById('filtro-fecha').value;
+    const pago = document.getElementById('filtro-pago').value.trim();
+    const contenido = document.getElementById('filtro-contenido').value.trim();
 
     // Filtro por repartidor
     if (repartidor && repartidor !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.repartidor && p.repartidor.toLowerCase() === repartidor.toLowerCase()
+        );
+    }
+
+        if (pago && pago !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.pago && p.pago.toLowerCase() === pago.toLowerCase()
+        );
+    }
+
+    // ✅ Filtro por contenido
+    if (contenido && contenido !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.contenido && p.contenido.toLowerCase() === contenido.toLowerCase()
         );
     }
 
@@ -301,7 +316,7 @@ function actualizarTabla(paquetesMostrar = paquetes) {
 
         // Destino
         row.insertCell(3).textContent = paquete.destino || 'No aplica';
-        
+
         // Método de pago
         row.insertCell(4).textContent = paquete.pago || 'N/A';
 
