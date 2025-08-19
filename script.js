@@ -9,7 +9,7 @@ const tablaPaquetes = document.getElementById('tabla-paquetes').getElementsByTag
 // Mostrar/ocultar campos de dirección según tipo de envío
 envioRadios.forEach(radio => {
     radio.addEventListener('change', function() {
-        direccionGroup.classList.toggle('hidden', this.value !== 'Entrega en dirección');
+        direccionGroup.classList.toggle('hidden', this.value !== 'Retiro en Oficina');
     });
 });
 
