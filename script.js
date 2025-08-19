@@ -275,17 +275,11 @@ function actualizarTabla(paquetesMostrar = paquetes) {
         // Código
         row.insertCell(0).textContent = paquete.codigo;
 
-        // Método de pago
-        row.insertCell(1).textContent = paquete.pago || 'N/A';
-
-        // Contenido
-        row.insertCell(2).textContent = paquete.contenido || 'N/A';
-
         // Dirección
-        row.insertCell(3).textContent = paquete.direccion;
+        row.insertCell(1).textContent = paquete.direccion;
 
         // Repartidor
-        const repartidorCell = row.insertCell(4);
+        const repartidorCell = row.insertCell(2);
         if (!paquete.repartidor && paquete.envio === 'Entrega en dirección') {
             const select = document.createElement('select');
             select.className = 'select-repartidor';
@@ -306,7 +300,13 @@ function actualizarTabla(paquetesMostrar = paquetes) {
         }
 
         // Destino
-        row.insertCell(5).textContent = paquete.destino || 'No aplica';
+        row.insertCell(3).textContent = paquete.destino || 'No aplica';
+        
+        // Método de pago
+        row.insertCell(4).textContent = paquete.pago || 'N/A';
+
+        // Contenido
+        row.insertCell(5).textContent = paquete.contenido || 'N/A';
 
         // Intentos
         row.insertCell(6).textContent = paquete.intentos;
