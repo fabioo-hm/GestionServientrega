@@ -158,7 +158,7 @@ async function marcarComoEntregado(codigo) {
 
 // Aplicar múltiples filtros
 function aplicarFiltros() {
-    let paquetesFiltrados = [...paquetes]; // Copia del array original
+    paquetesFiltrados = [...paquetes]; // Copia del array original
     
     const repartidor = document.getElementById('filtro-repartidor').value.trim();
     const codigo = document.getElementById('filtro-codigo').value.trim();
@@ -275,6 +275,8 @@ function limpiarFiltros() {
     document.getElementById('filtro-destino').value = 'Todos';
     document.getElementById('filtro-fecha-tipo').value = 'todas';
     document.getElementById('filtro-fecha').value = '';
+    document.getElementById('filtro-pago').value = 'Todos';
+    document.getElementById('filtro-contenido').value = 'Todos';
     
     paquetesFiltrados = [];
     actualizarTabla();
@@ -497,4 +499,20 @@ async function compararExcel() {
 // Inicializar
 document.addEventListener('DOMContentLoaded', function() {
     cargarPaquetesFirestore();
+    [
+      'filtro-repartidor',
+      'filtro-estado',
+      'filtro-destino',
+      'filtro-fecha-tipo',
+      'filtro-fecha',
+      'filtro-pago',        // 👈 nuevo
+      'filtro-contenido'    // 👈 nuevo
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', aplicarFiltros);
+    });
+
+  // Búsqueda por código en vivo
+  const filtroCodigo = document.getElementById('filtro-codigo');
+  if (filtroCodigo) filtroCodigo.addEventListener('input', aplicarFiltros);
 });
