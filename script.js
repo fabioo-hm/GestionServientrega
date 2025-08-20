@@ -297,7 +297,7 @@ function actualizarTabla(paquetesMostrar = paquetes) {
 
         // Repartidor
         const repartidorCell = row.insertCell(2);
-        if (!paquete.repartidor && paquete.envio === 'Entrega en dirección') {
+        if (paquete.envio === 'Entrega en dirección') {
             const select = document.createElement('select');
             select.className = 'select-repartidor';
             select.innerHTML = `
@@ -308,12 +308,19 @@ function actualizarTabla(paquetesMostrar = paquetes) {
                 <option value="Repartidor 4">Repartidor 4</option>
                 <option value="Repartidor 5">Repartidor 5</option>
             `;
+
+            // Preseleccionar si ya tiene repartidor asignado
+            if (paquete.repartidor) {
+                select.value = paquete.repartidor;
+            }
+
             select.addEventListener('change', () => {
                 asignarRepartidor(paquete.codigo, select);
             });
+
             repartidorCell.appendChild(select);
         } else {
-            repartidorCell.textContent = paquete.repartidor || 'N/A';
+            repartidorCell.textContent = 'N/A';
         }
 
         // Destino
