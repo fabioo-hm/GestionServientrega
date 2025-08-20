@@ -313,3 +313,55 @@ td {
     font-size: 0.95em;
     line-height: 1.4;
 }
+
+#eliminar {
+    margin-top: 20px;
+}
+
+#eliminar h2 {
+    color: #dc3545; /* Rojo de advertencia */
+    margin-bottom: 15px;
+}
+
+#info-paquete {
+    margin-top: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    background: #fff8f8;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+#info-paquete h3 {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+#info-paquete p {
+    margin: 5px 0;
+    font-size: 0.95em;
+    color: #555;
+}
+
+#info-paquete span {
+    font-weight: bold;
+    color: #000;
+}
+
+/* Botón rojo para eliminar */
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 15px;
+    display: inline-block;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
