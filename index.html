@@ -223,17 +223,18 @@
         </div>
 
         <div id="eliminar" class="tab-content">
-            <h2>Eliminar guias</h2>
+            <h2>Eliminar guías</h2>
             <div class="form-group">
-                <label for="buscar-codigo">Ingrese código de pedido:</label>
-                <input type="text" id="buscar-codigo">
-                <button onclick="eliminarPaquete()" class="btn">Eliminar</button>
+                <label for="buscar-codigo-eliminar">Ingrese código de pedido:</label>
+                <input type="text" id="buscar-codigo-eliminar">
+                <button onclick="buscarParaEliminar()" class="btn">Buscar</button>
             </div>
 
-            <div id="info-paquete" class="hidden">
+            <div id="info-paquete-eliminar" class="hidden">
                 <h3>Información del Paquete</h3>
-                <p>Código: <span id="info-codigo"></span></p>
-                <p>Dirección: <span id="info-direccion"></span></p>
+                <p>Código: <span id="info-codigo-eliminar"></span></p>
+                <p>Dirección: <span id="info-direccion-eliminar"></span></p>
+                <button onclick="eliminarPaquete()" class="btn btn-danger">Eliminar definitivamente</button>
             </div>
         </div>
     </div>

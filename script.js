@@ -119,38 +119,43 @@ async function buscarPaquete() {
 }
 
 
-function eliminarPaquete() {
-    let codigo = document.getElementById("buscar-codigo").value.trim();
+function buscarParaEliminar() {
+    const codigo = document.getElementById("buscar-codigo-eliminar").value.trim();
+    let paquetes = JSON.parse(localStorage.getItem("paquetes")) || [];
 
-    if (!codigo) {
-        alert("Por favor, ingresa un código de pedido.");
+    let paquete = paquetes.find(p => p.codigo === codigo);
+
+    if (!paquete) {
+        alert("❌ Paquete no encontrado.");
+        document.getElementById("info-paquete-eliminar").classList.add("hidden");
         return;
     }
 
+    // Mostrar información
+    document.getElementById("info-paquete-eliminar").classList.remove("hidden");
+    document.getElementById("info-codigo-eliminar").textContent = paquete.codigo;
+    document.getElementById("info-direccion-eliminar").textContent = paquete.direccion;
+}
+
+// Eliminar paquete seleccionado
+function eliminarPaquete() {
+    const codigo = document.getElementById("info-codigo-eliminar").textContent;
     let paquetes = JSON.parse(localStorage.getItem("paquetes")) || [];
 
-    // Buscar índice del paquete
     let index = paquetes.findIndex(p => p.codigo === codigo);
 
     if (index === -1) {
-        alert("❌ Paquete no encontrado.");
+        alert("❌ Error: el paquete ya no existe.");
         return;
     }
 
-    // Mostrar info antes de eliminar
-    let paquete = paquetes[index];
-    document.getElementById("info-paquete").classList.remove("hidden");
-    document.getElementById("info-codigo").textContent = paquete.codigo;
-    document.getElementById("info-direccion").textContent = paquete.direccion;
-    document.getElementById("info-intentos").textContent = paquete.intentos;
-
-    // Confirmación
     if (confirm(`¿Seguro que deseas eliminar el paquete con código ${codigo}?`)) {
-        paquetes.splice(index, 1); // Eliminar del array
+        paquetes.splice(index, 1);
         localStorage.setItem("paquetes", JSON.stringify(paquetes));
-        alert("✅ Paquete eliminado correctamente.");
-        document.getElementById("info-paquete").classList.add("hidden");
-        document.getElementById("buscar-codigo").value = "";
+
+        alert("✅ Paquete eliminado exitosamente.");
+        document.getElementById("info-paquete-eliminar").classList.add("hidden");
+        document.getElementById("buscar-codigo-eliminar").value = "";
     }
 }
 
