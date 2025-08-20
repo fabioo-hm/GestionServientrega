@@ -219,6 +219,22 @@
                 <p class="nota">Nota: Si establece 0 intentos, el estado cambiará a "Devolución"</p>
             </div>
         </div>
+
+        <div id="eliminar" class="tab-content">
+            <h2>Eliminar guías</h2>
+            <div class="form-group">
+                <label for="buscar-codigo">Ingrese código de pedido:</label>
+                <input type="text" id="buscar-codigo">
+                <button onclick="buscarPaquete()" class="btn">Buscar</button>
+            </div>
+            
+            <div id="info-paquete" class="hidden">
+                <h3>Información del Paquete</h3>
+                <p>Código: <span id="info-codigo"></span></p>
+                
+                <button onclick="eliminarPaquete()" class="btn btn-danger">Eliminar definitivamente</button>
+            </div>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>

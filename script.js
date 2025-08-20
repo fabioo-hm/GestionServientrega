@@ -100,19 +100,49 @@ async function marcarComoDigitalizado(codigo) {
 
 
 // Buscar paquete para modificar intentos
-function buscarPaquete() {
-    const codigo = document.getElementById('buscar-codigo').value;
-    const paquete = paquetes.find(p => p.codigo === codigo);
-    
-    if (paquete) {
-        document.getElementById('info-codigo').textContent = paquete.codigo;
-        document.getElementById('info-direccion').textContent = paquete.direccion;
-        document.getElementById('info-intentos').textContent = paquete.intentos;
-        document.getElementById('nuevos-intentos').value = paquete.intentos;
-        document.getElementById('info-paquete').classList.remove('hidden');
-    } else {
-        alert('Paquete no encontrado');
-    }
+let paqueteSeleccionado = null;
+
+async function buscarPaquete() {
+  const codigo = document.getElementById("buscar-codigo").value.trim();
+  const paquete = paquetes.find(p => p.codigo === codigo);
+
+  if (paquete) {
+    paqueteSeleccionado = paquete;
+    document.getElementById("info-codigo").textContent = paquete.codigo;
+    document.getElementById("info-direccion").textContent = paquete.direccion;
+    document.getElementById("info-intentos").textContent = paquete.intentos;
+    document.getElementById("info-paquete").classList.remove("hidden");
+  } else {
+    alert("❌ Paquete no encontrado.");
+    document.getElementById("info-paquete").classList.add("hidden");
+  }
+}
+
+
+async function eliminarPaquete() {
+  if (!paqueteSeleccionado) return alert("Primero busca un paquete.");
+
+  if (!confirm(`¿Seguro que deseas eliminar el paquete con código ${paqueteSeleccionado.codigo}?`)) {
+    return;
+  }
+
+  try {
+    const { db, doc, deleteDoc } = window.firestore;
+    const paqueteRef = doc(db, "paquetes", paqueteSeleccionado.id);
+    await deleteDoc(paqueteRef);
+
+    // Eliminar también de la lista local
+    paquetes = paquetes.filter(p => p.id !== paqueteSeleccionado.id);
+    actualizarTabla();
+
+    alert("✅ Paquete eliminado con éxito.");
+    document.getElementById("info-paquete").classList.add("hidden");
+    document.getElementById("buscar-codigo").value = "";
+    paqueteSeleccionado = null;
+  } catch (e) {
+    console.error("Error eliminando paquete:", e);
+    alert("❌ Error eliminando el paquete.");
+  }
 }
 
 // Actualizar intentos de entrega
