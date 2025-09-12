@@ -1,243 +1,94 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Paquetes</title>
-    <link rel="stylesheet" href="style.css">
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAgc2LKUM5YOdi-yghM-oNX5P1rO3Fyt1M",
-            authDomain: "gestion-paquetes-d27da.firebaseapp.com",
-            projectId: "gestion-paquetes-d27da",
-            storageBucket: "gestion-paquetes-d27da.appspot.com",
-            messagingSenderId: "874859059548",
-            appId: "1:874859059548:web:7be50c95de6d19c0e84999",
-            measurementId: "G-MV0NTDC5D3"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const analytics = getAnalytics(app);
-        const db = getFirestore(app);
-        window.firestore = { db, collection, addDoc, getDocs, updateDoc, doc };
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Gestión de Paquetes</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 </head>
-<body>
-    <div class="container">
-        <h1>Gestión de Paquetes</h1>
-        
-        <div class="tabs">
-            <button class="tab-button active" onclick="openTab('registro')">Registrar Paquete</button>
-            <button class="tab-button" onclick="openTab('consulta')">Consultar Paquetes</button>
-            <button class="tab-button" onclick="openTab('modificar')">Modificar Intentos</button>
-            <button class="tab-button" onclick="openTab('eliminar')">Eliminar Guías</button>
+<body class="bg-light">
 
+  <div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card shadow p-4" style="width: 100%; max-width: 600px; border-radius: 1rem;">
+      <h1 class="text-center mb-3">Iniciar Sesión</h1>
+      <form id="loginForm">
+        <div class="mb-3">
+          <label for="email" class="form-label">Correo</label>
+          <input type="email" class="form-control" id="email" placeholder="ejemplo@correo.com" required>
         </div>
-        
-        <div id="registro" class="tab-content active">
-            <h2>Registro de Nuevo Paquete</h2>
-            <form id="formPaquete">
-                <div class="form-group">
-                    <label for="codigo">Código de pedido:</label>
-                    <input type="text" id="codigo" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>Método de pago:</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="pago" value="De_contado" checked> De Contado</label>
-                        <label><input type="radio" name="pago" value="Contraentrega"> Contraentrega</label>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Tipo de envío:</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="envio" value="Retiro en oficina" checked> Retiro en oficina</label>
-                        <label><input type="radio" name="envio" value="Entrega en dirección"> Entrega en dirección</label>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Tipo de contenido:</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="contenido" value="Mercancía" checked> Mercancía</label>
-                        <label><input type="radio" name="contenido" value="Documentos"> Documentos</label>
-                    </div>
-                </div>
-                
-                <div id="direccion-group" class="form-group hidden">
-                    <label>Destino:</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="destino" value="Zona" checked> Zona</label>
-                        <label><input type="radio" name="destino" value="Fundacion"> Fundación</label>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="direccion">Dirección completa:</label>
-                        <textarea id="direccion" rows="3"></textarea>
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn">Guardar</button>
-            </form>
+        <div class="mb-3">
+          <label for="password" class="form-label">Contraseña</label>
+          <input type="password" class="form-control" id="password" placeholder="********" required>
         </div>
-        
-        <div id="consulta" class="tab-content">
-            <h2>Consulta de Paquetes</h2>
-            <div class="form-group">
-                <label for="filtro-repartidor">Filtrar por repartidor:</label>
-                <select id="filtro-repartidor">
-                    <option value="Todos">Todos</option>
-                    <option value="Repartidor 1">Repartidor 1</option>
-                    <option value="Repartidor 2">Repartidor 2</option>
-                    <option value="Repartidor 3">Repartidor 3</option>
-                    <option value="Repartidor 4">Repartidor 4</option>
-                    <option value="Repartidor 5">Repartidor 5</option>
-                </select>
-            </div>
-            
-            <div class="filtros-container">
-                <div class="form-group">
-                    <label for="filtro-codigo">Buscar por código:</label>
-                    <input type="text" id="filtro-codigo" placeholder="Ingrese código">
-                </div>
-                
-                <div class="form-group">
-                    <label for="filtro-estado">Filtrar por estado:</label>
-                    <select id="filtro-estado">
-                        <option value="Todos">Todos</option>
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Entregado">Entregado</option>
-                        <option value="Digitalizado">Digitalizado</option>
-                        <option value="Devolución">Devolución</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="filtro-destino">Filtrar por destino:</label>
-                    <select id="filtro-destino">
-                        <option value="Todos">Todos</option>
-                        <option value="Zona">Zona</option>
-                        <option value="Fundacion">Fundación</option>
-                        <option value="No aplica">No aplica</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="filtro-fecha">Filtrar por fecha:</label>
-                    <select id="filtro-fecha-tipo">
-                        <option value="todas">Todas las fechas</option>
-                        <option value="antes">Antes de</option>
-                        <option value="despues">Después de</option>
-                        <option value="igual">Igual a</option>
-                    </select>
-                    <input type="date" id="filtro-fecha" placeholder="DD/MM/AAAA">
-                </div>
-
-                <div class="form-group">
-                    <label for="filtro-pago">Filtrar por método de pago:</label>
-                    <select id="filtro-pago">
-                        <option value="Todos">Todos</option>
-                        <option value="De_contado">De contado</option>
-                        <option value="Contraentrega">Contraentrega</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="filtro-contenido">Filtrar por contenido:</label>
-                    <select id="filtro-contenido">
-                        <option value="Todos">Todos</option>
-                        <option value="Mercancía">Mercancía</option>
-                        <option value="Documentos">Documentos</option>
-                    </select>
-                </div>
-                
-                <button onclick="aplicarFiltros()" class="btn">Aplicar Filtros</button>
-                <button onclick="limpiarFiltros()" class="btn btn-secondary">Limpiar Filtros</button>
-                <button onclick="exportarExcelFiltrado()" class="btn btn-export">Exportar Excel</button>
-            </div>
-
-            <div class="comparar-container">
-                <h3>Comparar con archivo Excel</h3>
-                <input type="file" id="archivo-excel" accept=".xlsx,.xls" />
-                <button onclick="compararExcel()" class="btn">Comparar archivo</button>
-                <div id="resultado-comparacion"></div>
-            </div>
-
-            
-            <div class="resumen">
-                <p>Total paquetes: <span id="total-paquetes">0</span></p>
-                <p>Pendientes: <span id="pendientes">0</span></p>
-                <p>Entregados: <span id="entregados">0</span></p>
-                <p>Digitalizados: <span id="digitalizados">0</span></p>
-                <p>Devoluciones: <span id="devoluciones">0</span></p>
-            </div>
-            
-            <table id="tabla-paquetes">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Dirección</th>
-                        <th>Repartidor</th>
-                        <th>Destino</th>
-                        <th>Método de pago</th>
-                        <th>Contenido</th> 
-                        <th>Intentos</th>
-                        <th class="fecha-col">Fecha Registro</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-        
-        <div id="modificar" class="tab-content">
-            <h2>Modificar Intentos de Entrega</h2>
-            <div class="form-group">
-                <label for="buscar-codigo">Ingrese código de pedido:</label>
-                <input type="text" id="buscar-codigo">
-                <button onclick="buscarPaquete()" class="btn">Buscar</button>
-            </div>
-            
-            <div id="info-paquete" class="hidden">
-                <h3>Información del Paquete</h3>
-                <p>Código: <span id="info-codigo"></span></p>
-                <p>Dirección: <span id="info-direccion"></span></p>
-                <p>Intentos actuales: <span id="info-intentos"></span></p>
-                
-                <div class="form-group">
-                    <label for="nuevos-intentos">Nuevo número de intentos:</label>
-                    <input type="number" id="nuevos-intentos" min="0" max="3">
-                    <button onclick="actualizarIntentos()" class="btn">Actualizar</button>
-                </div>
-                
-                <p class="nota">Nota: Si establece 0 intentos, el estado cambiará a "Devolución"</p>
-            </div>
-        </div>
-
-        <div id="eliminar" class="tab-content">
-            <h2>Eliminar guías</h2>
-            <div class="form-group">
-                <label for="buscar-codigo-eliminar">Ingrese código de pedido:</label>
-                <input type="text" id="buscar-codigo-eliminar">
-                <button onclick="buscarParaEliminar()" class="btn">Buscar</button>
-            </div>
-
-            <div id="info-paquete-eliminar" class="hidden">
-                <h3>Información del Paquete</h3>
-                <p>Código: <span id="info-codigo-eliminar"></span></p>
-                <p>Dirección: <span id="info-direccion-eliminar"></span></p>
-                <button onclick="eliminarPaquete()" class="btn btn-danger">Eliminar definitivamente</button>
-            </div>
-        </div>
+        <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+      </form>
+      <div id="errorMsg" class="text-danger mt-3 text-center"></div>
     </div>
-    <script src="script.js"></script>
+  </div>
+
+  <script type="module">
+    // Importar Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged,signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // TODO: Pega aquí tu configuración de Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyAgc2LKUM5YOdi-yghM-oNX5P1rO3Fyt1M",
+        authDomain: "gestion-paquetes-d27da.firebaseapp.com",
+        projectId: "gestion-paquetes-d27da",
+        storageBucket: "gestion-paquetes-d27da.appspot.com",
+        messagingSenderId: "874859059548",
+        appId: "1:874859059548:web:7be50c95de6d19c0e84999",
+        measurementId: "G-MV0NTDC5D3"
+    };
+
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Formulario login
+    const loginForm = document.getElementById("loginForm");
+    const errorMsg = document.getElementById("errorMsg");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        // Autenticación
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Buscar rol en Firestore
+        const userDocRef = doc(db, "usuarios", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          const rol = data.rol;
+
+          // Redirección según rol
+          if (rol === "admin") {
+            window.location.href = "admin.html";
+          } else if (rol === "consulta") {
+            window.location.href = "consulta.html";
+          } else if (rol === "registro") {
+            window.location.href = "registro.html";
+          } else {
+            errorMsg.textContent = "Rol no reconocido. Contacte al administrador.";
+          }
+        } else {
+          errorMsg.textContent = "No se encontró el usuario en Firestore.";
+        }
+      } catch (error) {
+        console.error(error);
+        errorMsg.textContent = "Error en inicio de sesión: " + error.message;
+      }
+    });
+  </script>
+
 </body>
 </html>

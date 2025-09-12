@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Paquetes</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="proteccion.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Gestión de Paquetes</h1>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab('registro')">Registrar Paquete</button>
+            <button class="tab-button" onclick="openTab('consulta')">Consultar Paquetes</button>
+            <button class="tab-button" onclick="openTab('modificar')">Modificar Intentos</button>
+            <button class="tab-button" onclick="openTab('eliminar')">Eliminar Guía</button>
+
+        </div>
+        
+        <div id="registro" class="tab-content active">
+            <h2>Registro de Nuevo Paquete</h2>
+            <form id="formPaquete">
+                <div class="form-group">
+                    <label for="codigo">Código de pedido:</label>
+                    <input type="text" id="codigo" required>
+                </div>
+                <div class="form-group">
+                    <label for="piezas">Cantidad de piezas:</label>
+                    <input type="number" id="piezas" value="1" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Método de pago:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="pago" value="De_contado" checked> De Contado</label>
+                        <label><input type="radio" name="pago" value="Contraentrega"> Contraentrega</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tipo de envío:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="envio" value="Retiro en oficina" checked> Retiro en oficina</label>
+                        <label><input type="radio" name="envio" value="Entrega en dirección"> Entrega en dirección</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tipo de contenido:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="contenido" value="Mercancía" checked> Mercancía</label>
+                        <label><input type="radio" name="contenido" value="Documentos"> Documentos</label>
+                    </div>
+                </div>
+                
+                <div id="direccion-group" class="form-group hidden">
+                    <label>Destino:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="destino" value="Zona" checked> Zona</label>
+                        <label><input type="radio" name="destino" value="Fundacion"> Fundación</label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="direccion">Dirección completa:</label>
+                        <textarea id="direccion" rows="3"></textarea>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn">Guardar</button>
+            </form>
+        </div>
+        
+        <div id="consulta" class="tab-content">
+            <h2>Consulta de Paquetes</h2>
+            <div class="form-group">
+                <label for="filtro-repartidor">Filtrar por repartidor:</label>
+                <select id="filtro-repartidor">
+                    <option value="Todos">Todos</option>
+                    <option value="Repartidor 1">Repartidor 1</option>
+                    <option value="Repartidor 2">Repartidor 2</option>
+                    <option value="Repartidor 3">Repartidor 3</option>
+                    <option value="Repartidor 4">Repartidor 4</option>
+                    <option value="Repartidor 5">Repartidor 5</option>
+                </select>
+            </div>
+            
+            <div class="filtros-container">
+                <div class="form-group">
+                    <label for="filtro-codigo">Buscar por código:</label>
+                    <input type="text" id="filtro-codigo" placeholder="Ingrese código">
+                </div>
+                
+                <div class="form-group">
+                    <label for="filtro-estado">Filtrar por estado:</label>
+                    <select id="filtro-estado">
+                        <option value="Todos">Todos</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Entregado">Entregado</option>
+                        <option value="Digitalizado">Digitalizado</option>
+                        <option value="Devolución">Devolución</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="filtro-destino">Filtrar por destino:</label>
+                    <select id="filtro-destino">
+                        <option value="Todos">Todos</option>
+                        <option value="Zona">Zona</option>
+                        <option value="Fundacion">Fundación</option>
+                        <option value="No aplica">No aplica</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="filtro-fecha">Filtrar por fecha:</label>
+                    <select id="filtro-fecha-tipo">
+                        <option value="todas">Todas las fechas</option>
+                        <option value="antes">Antes de</option>
+                        <option value="despues">Después de</option>
+                        <option value="igual">Igual a</option>
+                        <option value="intervalo">Entre fechas</option>
+                    </select>
+                    <input type="date" id="filtro-fecha" placeholder="DD/MM/AAAA">
+                    <div id="filtro-intervalo" style="display: none; margin-top: 8px;">
+                        <label for="fecha-inicio">Desde:</label>
+                        <input type="date" id="fecha-inicio">
+                        <label for="fecha-fin">Hasta:</label>
+                        <input type="date" id="fecha-fin">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="filtro-pago">Filtrar por método de pago:</label>
+                    <select id="filtro-pago">
+                        <option value="Todos">Todos</option>
+                        <option value="De_contado">De contado</option>
+                        <option value="Contraentrega">Contraentrega</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="filtro-contenido">Filtrar por contenido:</label>
+                    <select id="filtro-contenido">
+                        <option value="Todos">Todos</option>
+                        <option value="Mercancía">Mercancía</option>
+                        <option value="Documentos">Documentos</option>
+                    </select>
+                </div>
+                
+                <button onclick="aplicarFiltros()" class="btn">Aplicar Filtros</button>
+                <button onclick="limpiarFiltros()" class="btn btn-secondary">Limpiar Filtros</button>
+                <button onclick="exportarExcelFiltrado()" class="btn btn-export">Exportar Excel</button>
+            </div>
+
+            <div class="comparar-container">
+                <h3>Comparar con archivo Excel</h3>
+                <input type="file" id="archivo-excel" accept=".xlsx,.xls" />
+                <button onclick="compararExcel()" class="btn">Comparar archivo</button>
+                <div id="resultado-comparacion"></div>
+            </div>
+
+            
+            <div class="resumen">
+                <p>Total paquetes: <span id="total-paquetes">0</span></p>
+                <p>Pendientes: <span id="pendientes">0</span></p>
+                <p>Entregados: <span id="entregados">0</span></p>
+                <p>Digitalizados: <span id="digitalizados">0</span></p>
+                <p>Devoluciones: <span id="devoluciones">0</span></p>
+            </div>
+            
+            <table id="tabla-paquetes">
+                <thead>
+                    <tr>
+                        <th>Reg.</th>
+                        <th>Código</th>
+                        <th>Pcs</th>
+                        <th>Dirección</th>
+                        <th>Repartidor</th>
+                        <th>Destino</th>
+                        <th>Método de pago</th>
+                        <th>Contenido</th> 
+                        <th>Intentos</th>
+                        <th class="fecha-col">Fecha Registro</th>
+                        <th class="fecha-col">Fecha Entregado</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <div id="modificar" class="tab-content">
+            <h2>Modificar Intentos de Entrega</h2>
+            <div class="form-group">
+                <label for="buscar-codigo">Ingrese código de pedido:</label>
+                <input type="text" id="buscar-codigo">
+                <button onclick="buscarPaquete()" class="btn">Buscar</button>
+            </div>
+            
+            <div id="info-paquete" class="hidden">
+                <h3>Información del Paquete</h3>
+                <p>Código: <span id="info-codigo"></span></p>
+                <p>Dirección: <span id="info-direccion"></span></p>
+                <p>Intentos actuales: <span id="info-intentos"></span></p>
+                
+                <div class="form-group">
+                    <label for="nuevos-intentos">Nuevo número de intentos:</label>
+                    <input type="number" id="nuevos-intentos" min="0" max="3">
+                    <button onclick="actualizarIntentos()" class="btn">Actualizar</button>
+                </div>
+                
+                <p class="nota">Nota: Si establece 0 intentos, el estado cambiará a "Devolución"</p>
+            </div>
+        </div>
+        <div id="eliminar" class="tab-content">
+            <h2>Eliminar Paquete</h2>
+
+            <!-- Buscar paquete -->
+            <div class="form-group">
+                <label for="codigo-eliminar">Ingrese código de pedido:</label>
+                <input type="text" id="codigo-eliminar" placeholder="Ej: PED12345">
+                <button onclick="buscarPaqueteEliminar()" class="btn">Buscar</button>
+            </div>
+
+            <!-- Información del paquete -->
+            <div id="info-eliminar" class="hidden">
+                <h3>Información del Paquete</h3>
+                <p><strong>Código:</strong> <span id="eliminar-codigo"></span></p>
+                <p><strong>Dirección:</strong> <span id="eliminar-direccion"></span></p>
+                <p><strong>Destino:</strong> <span id="eliminar-destino"></span></p>
+                <p><strong>Pago:</strong> <span id="eliminar-pago"></span></p>
+                <p><strong>Estado:</strong> <span id="eliminar-estado"></span></p>
+                <p><strong>Repartidor:</strong> <span id="eliminar-repartidor"></span></p>
+
+                <!-- Botón para eliminar -->
+                <button onclick="eliminarPaquete()" 
+                        class="btn" 
+                        style="background-color: red; color: white;">
+                    Eliminar Paquete
+                </button>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>

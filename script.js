@@ -1,5 +1,29 @@
 let paquetes = [];
 let paquetesFiltrados = [];
+// Detectar usuario logueado
+// script.js
+
+window.listenAuthChanges((user) => {
+  if (user) {
+    console.log("✅ Usuario logueado:", user.email);
+
+    if (user.email === "registradorservientregaa@gmail.com") {
+      window.registrador = "A";
+    } else if (user.email === "registradorservientregab@gmail.com") {
+      window.registrador = "B";
+    } else {
+      window.registrador = "?";
+    }
+
+    console.log("Registrador asignado:", window.registrador);
+  } else {
+    window.registrador = "";
+    console.log("⚠️ No hay usuario logueado");
+  }
+});
+
+
+
 // Elementos del DOM
 const formPaquete = document.getElementById('formPaquete');
 const envioRadios = document.querySelectorAll('input[name="envio"]');
@@ -18,6 +42,7 @@ formPaquete.addEventListener('submit', function(e) {
     e.preventDefault();
     
     const codigo = document.getElementById('codigo').value;
+    const piezas = parseInt(document.getElementById('piezas').value) || 1;
     const pago = document.querySelector('input[name="pago"]:checked').value;
     const envio = document.querySelector('input[name="envio"]:checked').value;
     const contenido = document.querySelector('input[name="contenido"]:checked').value;
@@ -44,6 +69,7 @@ formPaquete.addEventListener('submit', function(e) {
         contenido,
         destino,
         direccion,
+        piezas, 
         repartidor: '', // Inicialmente sin repartidor asignado
         intentos: 3,
         estado: 'Pendiente',
@@ -51,7 +77,8 @@ formPaquete.addEventListener('submit', function(e) {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
-        })
+        }),
+        registrador: registrador
     };
     
     guardarPaqueteFirestore(nuevoPaquete).then(() => {
@@ -69,12 +96,30 @@ async function asignarRepartidor(codigo, selectElement) {
 
   if (repartidor && paquete) {
     paquete.repartidor = repartidor;
+
+    // Si es Repartidor 4 -> pedimos ubicación
+    if (repartidor === "Repartidor 4") {
+      let ubicacion = prompt("Selecciona ubicación (AL o SAN):", "AL");
+      ubicacion = ubicacion?.toUpperCase();
+
+      if (ubicacion === "AL" || ubicacion === "SAN") {
+        paquete.destino = ubicacion; // 👈 Guardamos en destino
+      } else {
+        alert("Ubicación no válida, usando LA por defecto.");
+        paquete.destino = "AL";
+      }
+    }
+
     const { db, updateDoc, doc } = window.firestore;
     const paqueteRef = doc(db, "paquetes", paquete.id);
-    await updateDoc(paqueteRef, { repartidor: repartidor });
+    await updateDoc(paqueteRef, { 
+      repartidor: repartidor,
+      destino: paquete.destino || "" 
+    });
     actualizarTabla();
   }
 }
+
 
 
 // Función para marcar como digitalizado
@@ -117,48 +162,6 @@ async function buscarPaquete() {
     document.getElementById("info-paquete").classList.add("hidden");
   }
 }
-
-
-function buscarParaEliminar() {
-    const codigo = document.getElementById("buscar-codigo-eliminar").value.trim();
-    let paquetes = JSON.parse(localStorage.getItem("paquetes")) || [];
-
-    let paquete = paquetes.find(p => p.codigo === codigo);
-
-    if (!paquete) {
-        alert("❌ Paquete no encontrado.");
-        document.getElementById("info-paquete-eliminar").classList.add("hidden");
-        return;
-    }
-
-    // Mostrar información
-    document.getElementById("info-paquete-eliminar").classList.remove("hidden");
-    document.getElementById("info-codigo-eliminar").textContent = paquete.codigo;
-    document.getElementById("info-direccion-eliminar").textContent = paquete.direccion;
-}
-
-// Eliminar paquete seleccionado
-function eliminarPaquete() {
-    const codigo = document.getElementById("info-codigo-eliminar").textContent;
-    let paquetes = JSON.parse(localStorage.getItem("paquetes")) || [];
-
-    let index = paquetes.findIndex(p => p.codigo === codigo);
-
-    if (index === -1) {
-        alert("❌ Error: el paquete ya no existe.");
-        return;
-    }
-
-    if (confirm(`¿Seguro que deseas eliminar el paquete con código ${codigo}?`)) {
-        paquetes.splice(index, 1);
-        localStorage.setItem("paquetes", JSON.stringify(paquetes));
-
-        alert("✅ Paquete eliminado exitosamente.");
-        document.getElementById("info-paquete-eliminar").classList.add("hidden");
-        document.getElementById("buscar-codigo-eliminar").value = "";
-    }
-}
-
 
 // Actualizar intentos de entrega
 async function actualizarIntentos() {
@@ -258,34 +261,45 @@ function aplicarFiltros() {
             );
         }
     }
-
-    // Filtro por fecha
-    if (fecha && fechaTipo !== 'todas') {
-        const fechaFiltro = new Date(fecha);
-        fechaFiltro.setHours(0, 0, 0, 0);
-
+    if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
-            if (!p.fecha) return false; // si no tiene fecha lo descartamos
-            
+            if (!p.fecha) return false;
+
             const [day, month, year] = p.fecha.split('/');
-            if (!day || !month || !year) return false; // control de error
+            if (!day || !month || !year) return false;
 
             const fechaPaquete = new Date(`${year}-${month}-${day}`);
             fechaPaquete.setHours(0, 0, 0, 0);
 
-            switch (fechaTipo) {
-                case 'antes':
-                    return fechaPaquete < fechaFiltro;
-                case 'despues':
-                    return fechaPaquete > fechaFiltro;
-                case 'igual':
-                    return fechaPaquete.getTime() === fechaFiltro.getTime();
-                default:
-                    return true;
+            if (fechaTipo === 'antes' || fechaTipo === 'despues' || fechaTipo === 'igual') {
+                if (!fecha) return true; // si no hay fecha seleccionada no filtramos
+                const fechaFiltro = new Date(fecha);
+                fechaFiltro.setHours(0, 0, 0, 0);
+
+                switch (fechaTipo) {
+                    case 'antes': return fechaPaquete < fechaFiltro;
+                    case 'despues': return fechaPaquete > fechaFiltro;
+                    case 'igual': return fechaPaquete.getTime() === fechaFiltro.getTime();
+                }
             }
+
+            if (fechaTipo === 'intervalo') {
+                const inicio = document.getElementById('fecha-inicio').value;
+                const fin = document.getElementById('fecha-fin').value;
+
+                if (!inicio || !fin) return true; // si falta un extremo, no filtramos
+
+                const fechaInicio = new Date(inicio);
+                const fechaFin = new Date(fin);
+                fechaInicio.setHours(0, 0, 0, 0);
+                fechaFin.setHours(0, 0, 0, 0);
+
+                return fechaPaquete >= fechaInicio && fechaPaquete <= fechaFin;
+            }
+
+            return true;
         });
     }
-
     actualizarTabla(paquetesFiltrados);
 }
 
@@ -293,6 +307,7 @@ function aplicarFiltros() {
 function exportarExcelFiltrado() {
     const data = (paquetesFiltrados.length > 0 ? paquetesFiltrados : paquetes).map(p => ({
         'Código': p.codigo,
+        'Piezas': p.piezas,
         'Método de pago': p.pago,
         'Tipo de envío': p.envio,
         'Contenido': p.contenido,
@@ -333,15 +348,17 @@ function actualizarTabla(paquetesMostrar = paquetes) {
     
     paquetesMostrar.forEach(paquete => {
         const row = tablaPaquetes.insertRow();
-
+        // Registrador
+        row.insertCell(0).textContent = paquete.registrador || '-';
         // Código
-        row.insertCell(0).textContent = paquete.codigo;
+        row.insertCell(1).textContent = paquete.codigo;
 
+        row.insertCell(2).textContent = paquete.piezas || 1;
         // Dirección
-        row.insertCell(1).textContent = paquete.direccion;
+        row.insertCell(3).textContent = paquete.direccion;
 
         // Repartidor
-        const repartidorCell = row.insertCell(2);
+        const repartidorCell = row.insertCell(4);
         if (paquete.envio === 'Entrega en dirección') {
             const select = document.createElement('select');
             select.className = 'select-repartidor';
@@ -359,37 +376,74 @@ function actualizarTabla(paquetesMostrar = paquetes) {
                 select.value = paquete.repartidor;
             }
 
-            select.addEventListener('change', () => {
-                asignarRepartidor(paquete.codigo, select);
+            // Contenedor para el segundo select (ubicación)
+            const ubicacionContainer = document.createElement("div");
+
+            select.addEventListener('change', async () => {
+                await asignarRepartidor(paquete.codigo, select);
+
+                // Si es Repartidor 4 -> mostrar segundo select
+                ubicacionContainer.innerHTML = ""; // limpiar antes de agregar
+                if (select.value === "Repartidor 4") {
+                    const ubicacionSelect = document.createElement("select");
+                    ubicacionSelect.innerHTML = `
+                        <option value="">Seleccionar ubicación</option>
+                        <option value="AL">AL</option>
+                        <option value="SAN">SAN</option>
+                    `;
+
+                    // Preseleccionar si ya tiene destino
+                    if (paquete.destino) {
+                        ubicacionSelect.value = paquete.destino;
+                    }
+
+                    ubicacionSelect.addEventListener("change", async () => {
+                        const ubicacion = ubicacionSelect.value;
+                        if (ubicacion) {
+                            paquete.destino = ubicacion;
+                            const { db, updateDoc, doc } = window.firestore;
+                            const paqueteRef = doc(db, "paquetes", paquete.id);
+                            await updateDoc(paqueteRef, { destino: ubicacion });
+                            actualizarTabla();
+                        }
+                    });
+
+                    ubicacionContainer.appendChild(ubicacionSelect);
+                }
             });
 
             repartidorCell.appendChild(select);
+            repartidorCell.appendChild(ubicacionContainer);
+
         } else {
             repartidorCell.textContent = 'N/A';
         }
 
         // Destino
-        row.insertCell(3).textContent = paquete.destino || 'No aplica';
+        row.insertCell(5).textContent = paquete.destino || 'No aplica';
 
         // Método de pago
-        row.insertCell(4).textContent = paquete.pago || 'N/A';
+        row.insertCell(6).textContent = paquete.pago || 'N/A';
 
         // Contenido
-        row.insertCell(5).textContent = paquete.contenido || 'N/A';
+        row.insertCell(7).textContent = paquete.contenido || 'N/A';
 
         // Intentos
-        row.insertCell(6).textContent = paquete.intentos;
+        row.insertCell(8).textContent = paquete.intentos;
 
         // Fecha
-        row.insertCell(7).textContent = paquete.fecha;
+        row.insertCell(9).textContent = paquete.fecha;
+        
+        row.insertCell(10).textContent = paquete.fechaEntrega || '-';
 
         // Estado
-        const estadoCell = row.insertCell(8);
+        const estadoCell = row.insertCell(11);
         estadoCell.textContent = paquete.estado;
 
         // Acciones
-        const accionCell = row.insertCell(9);
+        const accionCell = row.insertCell(12);
         accionCell.className = 'accion-cell';
+
         
         // Botón para marcar como entregado
         if (
@@ -455,24 +509,35 @@ async function guardarPaqueteFirestore(paquete) {
 
 
 // Cambiar entre pestañas
+// Cambiar entre pestañas
 function openTab(tabName) {
     const tabContents = document.getElementsByClassName('tab-content');
     for (let i = 0; i < tabContents.length; i++) {
         tabContents[i].classList.remove('active');
     }
-    
+
     const tabButtons = document.getElementsByClassName('tab-button');
     for (let i = 0; i < tabButtons.length; i++) {
         tabButtons[i].classList.remove('active');
     }
-    
+
     document.getElementById(tabName).classList.add('active');
-    event.currentTarget.classList.add('active');
-    
+
+    // ⚠️ event.currentTarget no existe si llamas desde HTML con onclick
+    // Lo cambiamos para que funcione
+    const boton = Array.from(tabButtons).find(btn =>
+        btn.getAttribute("onclick")?.includes(`'${tabName}'`)
+    );
+    if (boton) boton.classList.add("active");
+
     if (tabName === 'consulta') {
         actualizarTabla();
     }
 }
+
+// ✅ Hacemos la función global
+window.openTab = openTab;
+
 
 async function cargarPaquetesFirestore() {
   try {
@@ -567,4 +632,91 @@ document.addEventListener('DOMContentLoaded', function() {
   // Búsqueda por código en vivo
   const filtroCodigo = document.getElementById('filtro-codigo');
   if (filtroCodigo) filtroCodigo.addEventListener('input', aplicarFiltros);
+
+    document.getElementById('filtro-fecha-tipo').addEventListener('change', function () {
+    const tipo = this.value;
+    const filtroFecha = document.getElementById('filtro-fecha');
+    const filtroIntervalo = document.getElementById('filtro-intervalo');
+
+    if (tipo === 'intervalo') {
+      filtroFecha.style.display = 'none';
+      filtroIntervalo.style.display = 'block';
+    } else if (tipo === 'todas') {
+      filtroFecha.style.display = 'none';
+      filtroIntervalo.style.display = 'none';
+    } else {
+      filtroFecha.style.display = 'block';
+      filtroIntervalo.style.display = 'none';
+    }
+  });
 });
+
+async function buscarPaqueteEliminar() {
+    const codigo = document.getElementById("codigo-eliminar").value.trim();
+    if (!codigo) {
+        alert("Por favor ingrese un código.");
+        return;
+    }
+
+    const { db, collection, query, where, getDocs } = window.firestore; // 👈 importante
+
+    const paquetesRef = collection(db, "paquetes");
+    const q = query(paquetesRef, where("codigo", "==", codigo));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        alert("No se encontró ningún paquete con ese código.");
+        document.getElementById("info-eliminar").classList.add("hidden");
+        return;
+    }
+
+    const paqueteDoc = querySnapshot.docs[0];
+    const paqueteData = paqueteDoc.data();
+
+    document.getElementById("info-eliminar").dataset.docId = paqueteDoc.id;
+
+    document.getElementById("eliminar-codigo").textContent = paqueteData.codigo || "";
+    document.getElementById("eliminar-direccion").textContent = paqueteData.direccion || "";
+    document.getElementById("eliminar-destino").textContent = paqueteData.destino || "";
+    document.getElementById("eliminar-pago").textContent = paqueteData.pago || "";
+    document.getElementById("eliminar-estado").textContent = paqueteData.estado || "";
+    document.getElementById("eliminar-repartidor").textContent = paqueteData.repartidor || "";
+
+    document.getElementById("info-eliminar").classList.remove("hidden");
+}
+
+async function eliminarPaquete() {
+    const docId = document.getElementById("info-eliminar").dataset.docId;
+    if (!docId) {
+        alert("No hay paquete seleccionado para eliminar.");
+        return;
+    }
+
+    if (!confirm("¿Seguro que deseas eliminar este paquete?")) {
+        return;
+    }
+
+    try {
+        const { db, deleteDoc, doc } = window.firestore; // 👈 importante
+        await deleteDoc(doc(db, "paquetes", docId));
+
+        alert("✅ Paquete eliminado correctamente.");
+        document.getElementById("info-eliminar").classList.add("hidden");
+        document.getElementById("codigo-eliminar").value = "";
+    } catch (error) {
+        console.error("Error eliminando paquete: ", error);
+        alert("❌ Hubo un error al eliminar el paquete.");
+    }
+}
+
+// Exponer funciones al HTML
+window.openTab = openTab;
+window.aplicarFiltros = aplicarFiltros;
+window.limpiarFiltros = limpiarFiltros;
+window.exportarExcelFiltrado = exportarExcelFiltrado;
+window.compararExcel = compararExcel;
+window.buscarPaquete = buscarPaquete;
+window.actualizarIntentos = actualizarIntentos;
+window.buscarPaqueteEliminar = buscarPaqueteEliminar;
+window.eliminarPaquete = eliminarPaquete;
+
