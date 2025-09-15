@@ -17,6 +17,7 @@
             <button class="tab-button active" onclick="openTab('registro')">Registrar Paquete</button>
             <button class="tab-button" onclick="openTab('consulta')">Consultar Paquetes</button>
             <button class="tab-button" onclick="openTab('modificar')">Modificar Intentos</button>
+            <button class="tab-button" onclick="openTab('eliminar')">Eliminar Paquete</button>
 
         </div>
         
@@ -215,6 +216,34 @@
                 </div>
                 
                 <p class="nota">Nota: Si establece 0 intentos, el estado cambiará a "Devolución"</p>
+            </div>
+        </div>
+        <div id="eliminar" class="tab-content">
+            <h2>Eliminar Paquete</h2>
+
+            <!-- Buscar paquete -->
+            <div class="form-group">
+                <label for="codigo-eliminar">Ingrese código de pedido:</label>
+                <input type="text" id="codigo-eliminar" placeholder="Ej: PED12345">
+                <button onclick="buscarPaqueteEliminar()" class="btn">Buscar</button>
+            </div>
+
+            <!-- Información del paquete -->
+            <div id="info-eliminar" class="hidden">
+                <h3>Información del Paquete</h3>
+                <p><strong>Código:</strong> <span id="eliminar-codigo"></span></p>
+                <p><strong>Dirección:</strong> <span id="eliminar-direccion"></span></p>
+                <p><strong>Destino:</strong> <span id="eliminar-destino"></span></p>
+                <p><strong>Pago:</strong> <span id="eliminar-pago"></span></p>
+                <p><strong>Estado:</strong> <span id="eliminar-estado"></span></p>
+                <p><strong>Repartidor:</strong> <span id="eliminar-repartidor"></span></p>
+
+                <!-- Botón para eliminar -->
+                <button onclick="eliminarPaqueteConPassword()" 
+                        class="btn" 
+                        style="background-color: red; color: white;">
+                    Eliminar Paquete
+                </button>
             </div>
         </div>
     </div>

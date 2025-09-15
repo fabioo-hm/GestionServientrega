@@ -709,6 +709,69 @@ async function eliminarPaquete() {
     }
 }
 
+const PASSWORD_ELIMINAR = "ServientregaGerman123"; // <- cambia la contraseña si quieres
+
+async function eliminarPaqueteConPassword() {
+  try {
+    // 1) pedir contraseña
+    const inputPass = prompt("Ingrese la contraseña para eliminar el paquete:");
+    if (inputPass === null) {
+      // usuario canceló
+      return;
+    }
+    if (inputPass !== PASSWORD_ELIMINAR) {
+      alert("❌ Contraseña incorrecta. No se eliminó el paquete.");
+      return;
+    }
+
+    // 2) obtener docId (si fue guardado por buscarPaqueteEliminar)
+    const infoEl = document.getElementById("info-eliminar");
+    const docId = infoEl?.dataset?.docId; // puede ser undefined
+    const { db, doc, deleteDoc, collection, query, where, getDocs } = window.firestore;
+
+    if (docId) {
+      // eliminar directamente por ID (recomendado)
+      await deleteDoc(doc(db, "paquetes", docId));
+    } else {
+      // si no tenemos docId, buscamos por el campo 'codigo' visible
+      const codigo = (document.getElementById("eliminar-codigo").textContent || "").trim();
+      if (!codigo) {
+        alert("No hay paquete cargado para eliminar.");
+        return;
+      }
+
+      // buscamos documentos que tengan ese codigo
+      const paquetesRef = collection(db, "paquetes");
+      const q = query(paquetesRef, where("codigo", "==", codigo));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        alert("No se encontró ningún documento con ese código en Firestore.");
+        return;
+      }
+
+      // eliminamos todos los documentos que coincidan (si hay más de uno)
+      const deletes = snapshot.docs.map(d => deleteDoc(doc(db, "paquetes", d.id)));
+      await Promise.all(deletes);
+    }
+
+    // 3) post-eliminación: feedback y refrescar tabla
+    alert("✅ Paquete eliminado correctamente.");
+    if (infoEl) infoEl.classList.add("hidden");
+    const inputCodigo = document.getElementById("codigo-eliminar");
+    if (inputCodigo) inputCodigo.value = "";
+    // recargamos desde Firestore para que la UI quede consistente
+    if (typeof cargarPaquetesFirestore === "function") {
+      cargarPaquetesFirestore();
+    }
+  } catch (error) {
+    console.error("Error eliminando paquete (con password):", error);
+    alert("❌ Ocurrió un error al eliminar el paquete. Revisa la consola.");
+  }
+}
+
+
+
 // Exponer funciones al HTML
 window.openTab = openTab;
 window.aplicarFiltros = aplicarFiltros;
@@ -719,4 +782,5 @@ window.buscarPaquete = buscarPaquete;
 window.actualizarIntentos = actualizarIntentos;
 window.buscarPaqueteEliminar = buscarPaqueteEliminar;
 window.eliminarPaquete = eliminarPaquete;
+window.eliminarPaqueteConPassword = eliminarPaqueteConPassword;
 
