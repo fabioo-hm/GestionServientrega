@@ -284,20 +284,42 @@ function aplicarFiltros() {
                     case 'igual': return fechaPaquete.getTime() === fechaFiltro.getTime();
                 }
             }
-
             if (fechaTipo === 'intervalo') {
                 const inicio = document.getElementById('fecha-inicio').value;
                 const fin = document.getElementById('fecha-fin').value;
+
                 if (!inicio || !fin) return true;
 
+                // Fecha de ingreso (registro)
+                let fechaIngreso = null;
+                if (p.fecha) {
+                    const [day, month, year] = p.fecha.split("/");
+                    fechaIngreso = new Date(`${year}-${month}-${day}`);
+                    fechaIngreso.setHours(0, 0, 0, 0);
+                }
+
+                // Fecha de digitalización
+                let fechaDigitalizacion = null;
+                if (p.fechaDigitalizacion) {
+                    const [day, month, year] = p.fechaDigitalizacion.split("/");
+                    fechaDigitalizacion = new Date(`${year}-${month}-${day}`);
+                    fechaDigitalizacion.setHours(0, 0, 0, 0);
+                }
+
+                // Rango de filtros
                 const fechaInicio = new Date(inicio);
                 const fechaFin = new Date(fin);
                 fechaInicio.setHours(0, 0, 0, 0);
                 fechaFin.setHours(0, 0, 0, 0);
 
-                return fechaPaquete >= fechaInicio && fechaPaquete <= fechaFin;
+                // ✅ Condición: registrado DESDE y digitalizado HASTA
+                return (
+                    fechaIngreso &&
+                    fechaDigitalizacion &&
+                    fechaIngreso >= fechaInicio &&
+                    fechaDigitalizacion <= fechaFin
+                );
             }
-
             return true;
         });
     }
