@@ -263,31 +263,18 @@ function aplicarFiltros() {
     }
     if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
-            // Usar fechaDigitalizado si el estado es Digitalizado
-            let fechaBase = null;
-            if (p.estado === "Digitalizado" && p.fechaDigitalizado) {
-                fechaBase = p.fechaDigitalizado; // debe venir como "YYYY-MM-DD"
-            } else {
-                fechaBase = p.fecha; // aquí sigues usando la fecha de registro
-            }
-
+            // Usar fechaDigitalizacion si existe
+            const fechaBase = p.fechaDigitalizacion || p.fecha;
             if (!fechaBase) return false;
 
-            // Si viene en formato "DD/MM/YYYY" (registro)
-            let fechaPaquete;
-            if (fechaBase.includes("/")) {
-                const [day, month, year] = fechaBase.split("/");
-                if (!day || !month || !year) return false;
-                fechaPaquete = new Date(`${year}-${month}-${day}`);
-            } else {
-                // Si viene en formato "YYYY-MM-DD" (digitalizado)
-                fechaPaquete = new Date(fechaBase);
-            }
+            const [day, month, year] = fechaBase.split("/");
+            if (!day || !month || !year) return false;
 
+            const fechaPaquete = new Date(`${year}-${month}-${day}`);
             fechaPaquete.setHours(0, 0, 0, 0);
 
             if (fechaTipo === 'antes' || fechaTipo === 'despues' || fechaTipo === 'igual') {
-                if (!fecha) return true; // si no hay fecha seleccionada no filtramos
+                if (!fecha) return true;
                 const fechaFiltro = new Date(fecha);
                 fechaFiltro.setHours(0, 0, 0, 0);
 
@@ -301,8 +288,7 @@ function aplicarFiltros() {
             if (fechaTipo === 'intervalo') {
                 const inicio = document.getElementById('fecha-inicio').value;
                 const fin = document.getElementById('fecha-fin').value;
-
-                if (!inicio || !fin) return true; // si falta un extremo, no filtramos
+                if (!inicio || !fin) return true;
 
                 const fechaInicio = new Date(inicio);
                 const fechaFin = new Date(fin);
@@ -321,6 +307,7 @@ function aplicarFiltros() {
 // Exportar a Excel los resultados filtrados
 function exportarExcelFiltrado() {
     const data = (paquetesFiltrados.length > 0 ? paquetesFiltrados : paquetes).map(p => ({
+        'Registrador': p.registrador || 'N/A',
         'Código': p.codigo,
         'Piezas': p.piezas,
         'Método de pago': p.pago,
@@ -522,9 +509,6 @@ async function guardarPaqueteFirestore(paquete) {
   }
 }
 
-
-// Cambiar entre pestañas
-// Cambiar entre pestañas
 function openTab(tabName) {
     const tabContents = document.getElementsByClassName('tab-content');
     for (let i = 0; i < tabContents.length; i++) {
@@ -823,7 +807,4 @@ window.actualizarIntentos = actualizarIntentos;
 window.buscarPaqueteEliminar = buscarPaqueteEliminar;
 window.eliminarPaquete = eliminarPaquete;
 window.eliminarPaqueteConPassword = eliminarPaqueteConPassword;
-window.siguientePagina = siguientePagina;
-window.anteriorPagina = anteriorPagina;
-window.mostrarPagina = mostrarPagina;
 
