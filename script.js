@@ -263,12 +263,27 @@ function aplicarFiltros() {
     }
     if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
-            if (!p.fecha) return false;
+            // Usar fechaDigitalizado si el estado es Digitalizado
+            let fechaBase = null;
+            if (p.estado === "Digitalizado" && p.fechaDigitalizado) {
+                fechaBase = p.fechaDigitalizado; // debe venir como "YYYY-MM-DD"
+            } else {
+                fechaBase = p.fecha; // aquí sigues usando la fecha de registro
+            }
 
-            const [day, month, year] = p.fecha.split('/');
-            if (!day || !month || !year) return false;
+            if (!fechaBase) return false;
 
-            const fechaPaquete = new Date(`${year}-${month}-${day}`);
+            // Si viene en formato "DD/MM/YYYY" (registro)
+            let fechaPaquete;
+            if (fechaBase.includes("/")) {
+                const [day, month, year] = fechaBase.split("/");
+                if (!day || !month || !year) return false;
+                fechaPaquete = new Date(`${year}-${month}-${day}`);
+            } else {
+                // Si viene en formato "YYYY-MM-DD" (digitalizado)
+                fechaPaquete = new Date(fechaBase);
+            }
+
             fechaPaquete.setHours(0, 0, 0, 0);
 
             if (fechaTipo === 'antes' || fechaTipo === 'despues' || fechaTipo === 'igual') {
@@ -769,6 +784,31 @@ async function eliminarPaqueteConPassword() {
     alert("❌ Ocurrió un error al eliminar el paquete. Revisa la consola.");
   }
 }
+const porPagina = 50;
+
+function mostrarPagina(pagina) {
+    const inicio = (pagina - 1) * porPagina;
+    const fin = inicio + porPagina;
+
+    const paquetesPagina = paquetes.slice(inicio, fin);
+    renderTabla(paquetesPagina);
+
+    document.getElementById("pagina-info").textContent = `Página ${pagina}`;
+}
+
+function siguientePagina() {
+    if (paginaActual * porPagina < paquetes.length) {
+        paginaActual++;
+        mostrarPagina(paginaActual);
+    }
+}
+
+function anteriorPagina() {
+    if (paginaActual > 1) {
+        paginaActual--;
+        mostrarPagina(paginaActual);
+    }
+}
 
 
 
@@ -783,4 +823,7 @@ window.actualizarIntentos = actualizarIntentos;
 window.buscarPaqueteEliminar = buscarPaqueteEliminar;
 window.eliminarPaquete = eliminarPaquete;
 window.eliminarPaqueteConPassword = eliminarPaqueteConPassword;
+window.siguientePagina = siguientePagina;
+window.anteriorPagina = anteriorPagina;
+window.mostrarPagina = mostrarPagina;
 
