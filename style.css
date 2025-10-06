@@ -365,3 +365,22 @@ td {
 .btn-danger:hover {
     background-color: #c82333;
 }
+
+.paginacion-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+.paginacion-container .btn {
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+#pagina-info {
+    font-size: 15px;
+    color: #333;
+}

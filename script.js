@@ -1,5 +1,9 @@
 let paquetes = [];
 let paquetesFiltrados = [];
+let paginaActual = 1;
+const paquetesPorPagina = 200;
+let paquetesFiltradosGlobal = []; // contendrá todos los paquetes filtrados
+
 // Detectar usuario logueado
 // script.js
 
@@ -119,9 +123,6 @@ async function asignarRepartidor(codigo, selectElement) {
     actualizarTabla();
   }
 }
-
-
-
 // Función para marcar como digitalizado
 async function marcarComoDigitalizado(codigo) {
   const paquete = paquetes.find(p => p.codigo === codigo);
@@ -142,8 +143,6 @@ async function marcarComoDigitalizado(codigo) {
     alert('Paquete marcado como digitalizado');
   }
 }
-
-
 // Buscar paquete para modificar intentos
 let paqueteSeleccionado = null;
 
@@ -181,7 +180,6 @@ async function actualizarIntentos() {
     document.getElementById('info-intentos').textContent = nuevosIntentos;
   }
 }
-
 // Marcar paquete como entregado
 async function marcarComoEntregado(codigo) {
   const paquete = paquetes.find(p => p.codigo === codigo);
@@ -202,8 +200,6 @@ async function marcarComoEntregado(codigo) {
     alert('Paquete marcado como entregado');
   }
 }
-
-
 // Aplicar múltiples filtros
 function aplicarFiltros() {
     paquetesFiltrados = [...paquetes]; // Copia del array original
@@ -305,13 +301,11 @@ function aplicarFiltros() {
                     fechaDigitalizacion = new Date(`${year}-${month}-${day}`);
                     fechaDigitalizacion.setHours(0, 0, 0, 0);
                 }
-
                 // Rango de filtros
                 const fechaInicio = new Date(inicio);
                 const fechaFin = new Date(fin);
                 fechaInicio.setHours(0, 0, 0, 0);
                 fechaFin.setHours(0, 0, 0, 0);
-
                 // ✅ Condición: registrado DESDE y digitalizado HASTA
                 return (
                     fechaIngreso &&
@@ -323,7 +317,9 @@ function aplicarFiltros() {
             return true;
         });
     }
-    actualizarTabla(paquetesFiltrados);
+    paquetesFiltradosGlobal = paquetesFiltrados;
+    paginaActual = 1;
+    actualizarTabla();
 }
 
 // Exportar a Excel los resultados filtrados
@@ -350,7 +346,6 @@ function exportarExcelFiltrado() {
     XLSX.utils.book_append_sheet(wb, ws, "Paquetes");
     XLSX.writeFile(wb, `control_paquetes_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
-
 // Limpiar filtros
 function limpiarFiltros() {
     document.getElementById('filtro-repartidor').value = 'Todos';
@@ -365,12 +360,21 @@ function limpiarFiltros() {
     paquetesFiltrados = [];
     actualizarTabla();
 }
-
 // Actualizar tabla de paquetes
-function actualizarTabla(paquetesMostrar = paquetes) {
-    tablaPaquetes.innerHTML = '';
-    
-    paquetesMostrar.forEach(paquete => {
+function actualizarTabla() {
+    const tablaBody = tablaPaquetes; // ya tienes esta referencia al tbody
+    tablaBody.innerHTML = '';
+
+    // si no hay datos, limpiamos resumen y controles
+    if (!Array.isArray(paquetesFiltradosGlobal)) paquetesFiltradosGlobal = [];
+
+    const total = paquetesFiltradosGlobal.length;
+    const inicio = (paginaActual - 1) * paquetesPorPagina;
+    const fin = inicio + paquetesPorPagina;
+    const paginaPaquetes = paquetesFiltradosGlobal.slice(inicio, fin);
+
+    // renderiza solo los paquetes de la pagina
+    paginaPaquetes.forEach(paquete => {
         const row = tablaPaquetes.insertRow();
         // Registrador
         row.insertCell(0).textContent = paquete.registrador || '-';
@@ -509,8 +513,45 @@ function actualizarTabla(paquetesMostrar = paquetes) {
         }
     });
     
-    actualizarResumen(paquetesMostrar);
+    actualizarResumen(paquetesFiltradosGlobal);
+    renderizarControlesPaginacion();
 }
+
+function renderizarPagina() {
+    const inicio = (paginaActual - 1) * paquetesPorPagina;
+    const fin = inicio + paquetesPorPagina;
+    const paquetesPagina = paquetesFiltradosGlobal.slice(inicio, fin);
+
+    actualizarTabla(paquetesPagina);              // muestra los 200 visibles
+    actualizarResumen(paquetesFiltradosGlobal);   // ✅ resumen del total filtrado
+    renderizarControlesPaginacion();              // muestra controles
+}
+
+
+function renderizarControlesPaginacion() {
+  const contenedor = document.getElementById("paginacion");
+  if (!contenedor) return;
+
+  const total = paquetesFiltradosGlobal.length;
+  const totalPaginas = Math.max(1, Math.ceil(total / paquetesPorPagina));
+
+  const inicio = (paginaActual - 1) * paquetesPorPagina + 1;
+  const fin = Math.min(paginaActual * paquetesPorPagina, total);
+
+  contenedor.innerHTML = `
+    <button class="btn" onclick="cambiarPagina(-1)" ${paginaActual === 1 ? "disabled" : ""}>⬅️ Anterior</button>
+    <span style="margin: 0 10px;">Página ${paginaActual} de ${totalPaginas} — mostrando ${inicio}–${fin} de ${total}</span>
+    <button class="btn" onclick="cambiarPagina(1)" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente ➡️</button>
+  `;
+}
+
+function cambiarPagina(delta) {
+    const totalPaginas = Math.max(1, Math.ceil(paquetesFiltradosGlobal.length / paquetesPorPagina));
+    paginaActual = Math.min(totalPaginas, Math.max(1, paginaActual + delta));
+    renderizarPagina(); // ✅ esta sí usa el slice correcto
+}
+
+
 
 // Actualizar resumen
 function actualizarResumen(paquetesMostrar) {
@@ -568,7 +609,11 @@ async function cargarPaquetesFirestore() {
     querySnapshot.forEach((doc) => {
       paquetes.push({ id: doc.id, ...doc.data() });
     });
-    actualizarTabla();
+
+    // inicializamos paginación
+    paquetesFiltradosGlobal = paquetes.slice();
+    paginaActual = 1;
+    actualizarTabla(); // ahora actualizarTabla manejará la paginación
   } catch (e) {
     console.error("Error cargando paquetes: ", e);
   }
@@ -790,33 +835,6 @@ async function eliminarPaqueteConPassword() {
     alert("❌ Ocurrió un error al eliminar el paquete. Revisa la consola.");
   }
 }
-const porPagina = 50;
-
-function mostrarPagina(pagina) {
-    const inicio = (pagina - 1) * porPagina;
-    const fin = inicio + porPagina;
-
-    const paquetesPagina = paquetes.slice(inicio, fin);
-    renderTabla(paquetesPagina);
-
-    document.getElementById("pagina-info").textContent = `Página ${pagina}`;
-}
-
-function siguientePagina() {
-    if (paginaActual * porPagina < paquetes.length) {
-        paginaActual++;
-        mostrarPagina(paginaActual);
-    }
-}
-
-function anteriorPagina() {
-    if (paginaActual > 1) {
-        paginaActual--;
-        mostrarPagina(paginaActual);
-    }
-}
-
-
 
 // Exponer funciones al HTML
 window.openTab = openTab;
@@ -829,4 +847,5 @@ window.actualizarIntentos = actualizarIntentos;
 window.buscarPaqueteEliminar = buscarPaqueteEliminar;
 window.eliminarPaquete = eliminarPaquete;
 window.eliminarPaqueteConPassword = eliminarPaqueteConPassword;
+window.cambiarPagina = cambiarPagina;
 
