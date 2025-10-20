@@ -257,10 +257,19 @@ function aplicarFiltros() {
             );
         }
     }
+    // Filtro por fecha - VERSIÓN CORREGIDA
     if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
-            // Usar fechaDigitalizacion si existe
-            const fechaBase = p.fechaDigitalizacion || p.fecha;
+            let fechaBase = null;
+            
+            // Determinar qué fecha usar según el contexto
+            // Para estado "Digitalizado" usar fechaDigitalizacion, para otros usar fecha de registro
+            if (p.estado === 'Digitalizado' && p.fechaDigitalizacion) {
+                fechaBase = p.fechaDigitalizacion;
+            } else {
+                fechaBase = p.fecha;
+            }
+            
             if (!fechaBase) return false;
 
             const [day, month, year] = fechaBase.split("/");
@@ -280,39 +289,27 @@ function aplicarFiltros() {
                     case 'igual': return fechaPaquete.getTime() === fechaFiltro.getTime();
                 }
             }
+            
             if (fechaTipo === 'intervalo') {
                 const inicio = document.getElementById('fecha-inicio').value;
                 const fin = document.getElementById('fecha-fin').value;
 
                 if (!inicio || !fin) return true;
 
-                // Fecha de ingreso (registro)
-                let fechaIngreso = null;
-                if (p.fecha) {
-                    const [day, month, year] = p.fecha.split("/");
-                    fechaIngreso = new Date(`${year}-${month}-${day}`);
-                    fechaIngreso.setHours(0, 0, 0, 0);
-                }
-
-                // Fecha de digitalización
-                let fechaDigitalizacion = null;
-                if (p.fechaDigitalizacion) {
-                    const [day, month, year] = p.fechaDigitalizacion.split("/");
-                    fechaDigitalizacion = new Date(`${year}-${month}-${day}`);
-                    fechaDigitalizacion.setHours(0, 0, 0, 0);
-                }
-                // Rango de filtros
                 const fechaInicio = new Date(inicio);
                 const fechaFin = new Date(fin);
                 fechaInicio.setHours(0, 0, 0, 0);
                 fechaFin.setHours(0, 0, 0, 0);
-                // ✅ Condición: registrado DESDE y digitalizado HASTA
-                return (
-                    fechaIngreso &&
-                    fechaDigitalizacion &&
-                    fechaIngreso >= fechaInicio &&
-                    fechaDigitalizacion <= fechaFin
-                );
+
+                // Para intervalo, usar fecha de registro
+                let fechaComparar = null;
+                if (p.fecha) {
+                    const [day, month, year] = p.fecha.split("/");
+                    fechaComparar = new Date(`${year}-${month}-${day}`);
+                    fechaComparar.setHours(0, 0, 0, 0);
+                }
+                
+                return fechaComparar && fechaComparar >= fechaInicio && fechaComparar <= fechaFin;
             }
             return true;
         });
@@ -835,6 +832,152 @@ async function eliminarPaqueteConPassword() {
     alert("❌ Ocurrió un error al eliminar el paquete. Revisa la consola.");
   }
 }
+let paqueteEditando = null;
+
+// Buscar paquete para editar
+async function buscarPaqueteEditar() {
+    const codigo = document.getElementById("editar-codigo").value.trim();
+    const paquete = paquetes.find(p => p.codigo === codigo);
+
+    if (paquete) {
+        paqueteEditando = paquete;
+        mostrarFormularioEdicion(paquete);
+    } else {
+        alert("❌ Paquete no encontrado.");
+        document.getElementById("formulario-edicion").classList.add("hidden");
+    }
+}
+
+// Mostrar formulario con datos actuales
+function mostrarFormularioEdicion(paquete) {
+    // Llenar campos del formulario
+    document.getElementById("editar-id").value = paquete.id;
+    document.getElementById("editar-codigo-input").value = paquete.codigo;
+    document.getElementById("editar-piezas").value = paquete.piezas || 1;
+    
+    // Método de pago
+    document.querySelector(`input[name="editar-pago"][value="${paquete.pago}"]`).checked = true;
+    
+    // Tipo de envío
+    document.querySelector(`input[name="editar-envio"][value="${paquete.envio}"]`).checked = true;
+    
+    // Tipo de contenido
+    document.querySelector(`input[name="editar-contenido"][value="${paquete.contenido}"]`).checked = true;
+    
+    // Destino y dirección
+    if (paquete.envio === 'Entrega en dirección') {
+        document.getElementById("editar-direccion-group").classList.remove("hidden");
+        if (paquete.destino) {
+            document.querySelector(`input[name="editar-destino"][value="${paquete.destino}"]`).checked = true;
+        }
+        document.getElementById("editar-direccion").value = paquete.direccion || '';
+    } else {
+        document.getElementById("editar-direccion-group").classList.add("hidden");
+    }
+    
+    // Otros campos
+    document.getElementById("editar-repartidor").value = paquete.repartidor || '';
+    document.getElementById("editar-intentos").value = paquete.intentos || 0;
+    document.getElementById("editar-estado").value = paquete.estado || 'Pendiente';
+    
+    // Fechas - convertir formato DD/MM/AAAA a YYYY-MM-DD para input type="date"
+    if (paquete.fecha) {
+        const [day, month, year] = paquete.fecha.split('/');
+        document.getElementById("editar-fecha").value = `${year}-${month}-${day}`;
+    }
+    
+    if (paquete.fechaEntrega) {
+        const [day, month, year] = paquete.fechaEntrega.split('/');
+        document.getElementById("editar-fecha-entrega").value = `${year}-${month}-${day}`;
+    }
+    
+    if (paquete.fechaDigitalizacion) {
+        const [day, month, year] = paquete.fechaDigitalizacion.split('/');
+        document.getElementById("editar-fecha-digitalizacion").value = `${year}-${month}-${day}`;
+    }
+    
+    // Mostrar formulario
+    document.getElementById("formulario-edicion").classList.remove("hidden");
+    
+    // Agregar event listeners para mostrar/ocultar dirección
+    document.querySelectorAll('input[name="editar-envio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById("editar-direccion-group").classList.toggle('hidden', this.value !== 'Entrega en dirección');
+        });
+    });
+}
+
+// Confirmar edición
+async function confirmarEdicion() {
+    if (!confirm("¿Está seguro de que desea guardar los cambios?")) {
+        return;
+    }
+
+    try {
+        const { db, updateDoc, doc } = window.firestore;
+        const paqueteRef = doc(db, "paquetes", paqueteEditando.id);
+        
+        // Recopilar datos del formulario
+        const datosActualizados = {
+            codigo: document.getElementById("editar-codigo-input").value,
+            piezas: parseInt(document.getElementById("editar-piezas").value),
+            pago: document.querySelector('input[name="editar-pago"]:checked').value,
+            envio: document.querySelector('input[name="editar-envio"]:checked').value,
+            contenido: document.querySelector('input[name="editar-contenido"]:checked').value,
+            repartidor: document.getElementById("editar-repartidor").value,
+            intentos: parseInt(document.getElementById("editar-intentos").value),
+            estado: document.getElementById("editar-estado").value,
+            fecha: convertirFechaADDMYYYY(document.getElementById("editar-fecha").value)
+        };
+        
+        // Manejar dirección y destino
+        if (datosActualizados.envio === 'Entrega en dirección') {
+            datosActualizados.destino = document.querySelector('input[name="editar-destino"]:checked').value;
+            datosActualizados.direccion = document.getElementById("editar-direccion").value.trim();
+        } else {
+            datosActualizados.destino = '';
+            datosActualizados.direccion = 'Retiro en oficina';
+        }
+        
+        // Fechas opcionales
+        const fechaEntrega = document.getElementById("editar-fecha-entrega").value;
+        if (fechaEntrega) {
+            datosActualizados.fechaEntrega = convertirFechaADDMYYYY(fechaEntrega);
+        }
+        
+        const fechaDigitalizacion = document.getElementById("editar-fecha-digitalizacion").value;
+        if (fechaDigitalizacion) {
+            datosActualizados.fechaDigitalizacion = convertirFechaADDMYYYY(fechaDigitalizacion);
+        }
+        
+        // Actualizar en Firestore
+        await updateDoc(paqueteRef, datosActualizados);
+        
+        alert("✅ Cambios guardados correctamente");
+        cancelarEdicion();
+        cargarPaquetesFirestore(); // Recargar datos
+    } catch (error) {
+        console.error("Error al guardar cambios:", error);
+        alert("❌ Error al guardar los cambios");
+    }
+}
+
+// Función auxiliar para convertir fechas
+function convertirFechaADDMYYYY(fechaISO) {
+    if (!fechaISO) return '';
+    const fecha = new Date(fechaISO);
+    const day = fecha.getDate().toString().padStart(2, '0');
+    const month = (fecha.getMonth() + 1).toString().padStart(2, '0');
+    const year = fecha.getFullYear();
+    return `${day}/${month}/${year}`;
+}
+
+// Cancelar edición
+function cancelarEdicion() {
+    document.getElementById("formulario-edicion").classList.add("hidden");
+    document.getElementById("editar-codigo").value = '';
+    paqueteEditando = null;
+}
 
 // Exponer funciones al HTML
 window.openTab = openTab;
@@ -848,4 +991,8 @@ window.buscarPaqueteEliminar = buscarPaqueteEliminar;
 window.eliminarPaquete = eliminarPaquete;
 window.eliminarPaqueteConPassword = eliminarPaqueteConPassword;
 window.cambiarPagina = cambiarPagina;
+window.buscarPaqueteEditar = buscarPaqueteEditar;
+window.confirmarEdicion = confirmarEdicion;
+window.cancelarEdicion = cancelarEdicion;
+
 
