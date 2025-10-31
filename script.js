@@ -220,7 +220,7 @@ function aplicarFiltros() {
         );
     }
 
-        if (pago && pago !== 'Todos') {
+    if (pago && pago !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.pago && p.pago.toLowerCase() === pago.toLowerCase()
         );
@@ -257,17 +257,17 @@ function aplicarFiltros() {
             );
         }
     }
-    // Filtro por fecha - VERSIÓN CORREGIDA
+    
+    // Filtro por fecha - VERSIÓN MEJORADA CON SELECCIÓN DE TIPO DE FECHA
     if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
             let fechaBase = null;
             
-            // Determinar qué fecha usar según el contexto
-            // Para estado "Digitalizado" usar fechaDigitalizacion, para otros usar fecha de registro
-            if (p.estado === 'Digitalizado' && p.fechaDigitalizacion) {
+            // Determinar qué fecha usar según la selección del usuario
+            if (tipoFechaFiltro === 'digitalizacion' && p.fechaDigitalizacion) {
                 fechaBase = p.fechaDigitalizacion;
             } else {
-                fechaBase = p.fecha;
+                fechaBase = p.fecha; // Por defecto, fecha de registro
             }
             
             if (!fechaBase) return false;
@@ -301,9 +301,13 @@ function aplicarFiltros() {
                 fechaInicio.setHours(0, 0, 0, 0);
                 fechaFin.setHours(0, 0, 0, 0);
 
-                // Para intervalo, usar fecha de registro
+                // Para intervalo, usar la fecha seleccionada (registro o digitalización)
                 let fechaComparar = null;
-                if (p.fecha) {
+                if (tipoFechaFiltro === 'digitalizacion' && p.fechaDigitalizacion) {
+                    const [day, month, year] = p.fechaDigitalizacion.split("/");
+                    fechaComparar = new Date(`${year}-${month}-${day}`);
+                    fechaComparar.setHours(0, 0, 0, 0);
+                } else if (p.fecha) {
                     const [day, month, year] = p.fecha.split("/");
                     fechaComparar = new Date(`${year}-${month}-${day}`);
                     fechaComparar.setHours(0, 0, 0, 0);
@@ -314,8 +318,28 @@ function aplicarFiltros() {
             return true;
         });
     }
+    
     paquetesFiltradosGlobal = paquetesFiltrados;
     paginaActual = 1;
+    actualizarTabla();
+}
+
+// Limpiar filtros - actualizada para incluir el nuevo selector
+function limpiarFiltros() {
+    document.getElementById('filtro-repartidor').value = 'Todos';
+    document.getElementById('filtro-codigo').value = '';
+    document.getElementById('filtro-estado').value = 'Todos';
+    document.getElementById('filtro-destino').value = 'Todos';
+    document.getElementById('filtro-fecha-tipo').value = 'todas';
+    document.getElementById('filtro-fecha').value = '';
+    document.getElementById('filtro-pago').value = 'Todos';
+    document.getElementById('filtro-contenido').value = 'Todos';
+    
+    // Restablecer el selector de tipo de fecha a "Fecha de registro"
+    document.querySelector('input[name="tipo-fecha"][value="registro"]').checked = true;
+    tipoFechaFiltro = 'registro';
+    
+    paquetesFiltrados = [];
     actualizarTabla();
 }
 
@@ -343,20 +367,7 @@ function exportarExcelFiltrado() {
     XLSX.utils.book_append_sheet(wb, ws, "Paquetes");
     XLSX.writeFile(wb, `control_paquetes_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
-// Limpiar filtros
-function limpiarFiltros() {
-    document.getElementById('filtro-repartidor').value = 'Todos';
-    document.getElementById('filtro-codigo').value = '';
-    document.getElementById('filtro-estado').value = 'Todos';
-    document.getElementById('filtro-destino').value = 'Todos';
-    document.getElementById('filtro-fecha-tipo').value = 'todas';
-    document.getElementById('filtro-fecha').value = '';
-    document.getElementById('filtro-pago').value = 'Todos';
-    document.getElementById('filtro-contenido').value = 'Todos';
-    
-    paquetesFiltrados = [];
-    actualizarTabla();
-}
+
 // Actualizar tabla de paquetes
 function actualizarTabla() {
     const tablaBody = tablaPaquetes; // ya tienes esta referencia al tbody

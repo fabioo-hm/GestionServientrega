@@ -8,6 +8,25 @@
     <script type="module" src="firebase.js"></script>
     <script type="module" src="proteccion.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* Estilos adicionales para el nuevo filtro */
+        .filtro-tipo-fecha {
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .filtro-tipo-fecha label {
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        
+        .filtro-tipo-fecha input[type="radio"] {
+            margin-right: 5px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -18,7 +37,7 @@
             <button class="tab-button" onclick="openTab('consulta')">Consultar Paquetes</button>
             <button class="tab-button" onclick="openTab('modificar')">Modificar Intentos</button>
             <button class="tab-button" onclick="openTab('eliminar')">Eliminar Guía</button>
-
+            <button class="tab-button" onclick="openTab('editar')">Editar Paquete</button>
         </div>
         
         <div id="registro" class="tab-content active">
@@ -109,6 +128,8 @@
                     <select id="filtro-destino">
                         <option value="Todos">Todos</option>
                         <option value="Zona">Zona</option>
+                        <option value="AL">AL</option>
+                        <option value="SAN">SAN</option>
                         <option value="Fundacion">Fundación</option>
                         <option value="No aplica">No aplica</option>
                     </select>
@@ -123,6 +144,19 @@
                         <option value="igual">Igual a</option>
                         <option value="intervalo">Entre fechas</option>
                     </select>
+                    
+                    <!-- Nuevo selector de tipo de fecha -->
+                    <div class="filtro-tipo-fecha">
+                        <label>
+                            <input type="radio" name="tipo-fecha" value="registro" checked>
+                            Fecha de registro
+                        </label>
+                        <label>
+                            <input type="radio" name="tipo-fecha" value="digitalizacion">
+                            Fecha de digitalización
+                        </label>
+                    </div>
+                    
                     <input type="date" id="filtro-fecha" placeholder="DD/MM/AAAA">
                     <div id="filtro-intervalo" style="display: none; margin-top: 8px;">
                         <label for="fecha-inicio">Desde:</label>
@@ -191,7 +225,7 @@
                 </thead>
                 <tbody></tbody>
             </table>
-                <div id="paginacion" class="paginacion-container">
+            <div id="paginacion" class="paginacion-container">
                 <button class="btn" onclick="cambiarPagina(-1)">⬅️ Anterior</button>
                 <span id="pagina-info">Página 1 de 1</span>
                 <button class="btn" onclick="cambiarPagina(1)">Siguiente ➡️</button>
@@ -248,8 +282,135 @@
                     Eliminar Paquete
                 </button>
             </div>
+            <div id="editar" class="tab-content">
+                <h2>Editar Información de Paquete</h2>
+                <div class="form-group">
+                    <label for="editar-codigo">Ingrese código de pedido:</label>
+                    <input type="text" id="editar-codigo">
+                    <button onclick="buscarPaqueteEditar()" class="btn">Buscar</button>
+                </div>
+                
+                <div id="formulario-edicion" class="hidden">
+                    <h3>Editar Información</h3>
+                    <form id="form-editar-paquete">
+                        <input type="hidden" id="editar-id">
+                        
+                        <div class="form-group">
+                            <label for="editar-codigo-input">Código de pedido:</label>
+                            <input type="text" id="editar-codigo-input" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-piezas">Cantidad de piezas:</label>
+                            <input type="number" id="editar-piezas" min="1" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Método de pago:</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="editar-pago" value="De_contado"> De Contado</label>
+                                <label><input type="radio" name="editar-pago" value="Contraentrega"> Contraentrega</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Tipo de envío:</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="editar-envio" value="Retiro en oficina"> Retiro en oficina</label>
+                                <label><input type="radio" name="editar-envio" value="Entrega en dirección"> Entrega en dirección</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Tipo de contenido:</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="editar-contenido" value="Mercancía"> Mercancía</label>
+                                <label><input type="radio" name="editar-contenido" value="Documentos"> Documentos</label>
+                            </div>
+                        </div>
+                        
+                        <div id="editar-direccion-group" class="form-group hidden">
+                            <label>Destino:</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="editar-destino" value="Zona"> Zona</label>
+                                <label><input type="radio" name="editar-destino" value="Fundacion"> Fundación</label>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="editar-direccion">Dirección completa:</label>
+                                <textarea id="editar-direccion" rows="3"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-repartidor">Repartidor asignado:</label>
+                            <select id="editar-repartidor">
+                                <option value="">Sin asignar</option>
+                                <option value="Repartidor 1">Repartidor 1</option>
+                                <option value="Repartidor 2">Repartidor 2</option>
+                                <option value="Repartidor 3">Repartidor 3</option>
+                                <option value="Repartidor 4">Repartidor 4</option>
+                                <option value="Repartidor 5">Repartidor 5</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-intentos">Intentos de entrega:</label>
+                            <input type="number" id="editar-intentos" min="0" max="3" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-estado">Estado:</label>
+                            <select id="editar-estado" required>
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="Entregado">Entregado</option>
+                                <option value="Digitalizado">Digitalizado</option>
+                                <option value="Devolución">Devolución</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-fecha">Fecha de registro:</label>
+                            <input type="date" id="editar-fecha" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-fecha-entrega">Fecha de entrega:</label>
+                            <input type="date" id="editar-fecha-entrega">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="editar-fecha-digitalizacion">Fecha de digitalización:</label>
+                            <input type="date" id="editar-fecha-digitalizacion">
+                        </div>
+                        
+                        <button type="button" onclick="confirmarEdicion()" class="btn">Guardar Cambios</button>
+                        <button type="button" onclick="cancelarEdicion()" class="btn btn-secondary">Cancelar</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
     <script type="module" src="script.js"></script>
+    <script>
+        // Agregar esta variable global para controlar el tipo de fecha seleccionada
+        let tipoFechaFiltro = 'registro'; // 'registro' o 'digitalizacion'
+        
+        // Función para actualizar la variable global cuando cambie la selección
+        function actualizarTipoFechaFiltro() {
+            const radioSeleccionado = document.querySelector('input[name="tipo-fecha"]:checked');
+            if (radioSeleccionado) {
+                tipoFechaFiltro = radioSeleccionado.value;
+            }
+        }
+        
+        // Agregar event listeners a los radio buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            const radiosTipoFecha = document.querySelectorAll('input[name="tipo-fecha"]');
+            radiosTipoFecha.forEach(radio => {
+                radio.addEventListener('change', actualizarTipoFechaFiltro);
+            });
+        });
+    </script>
 </body>
 </html>
