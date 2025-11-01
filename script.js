@@ -212,7 +212,7 @@ function aplicarFiltros() {
     const fecha = document.getElementById('filtro-fecha').value;
     const pago = document.getElementById('filtro-pago').value.trim();
     const contenido = document.getElementById('filtro-contenido').value.trim();
-
+    const envio = document.getElementById('filtro-envio').value.trim();
     // Filtro por repartidor
     if (repartidor && repartidor !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
@@ -247,6 +247,11 @@ function aplicarFiltros() {
         );
     }
 
+    if (envio && envio !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.envio && p.envio.toLowerCase() === envio.toLowerCase()
+        );
+    }
     // Filtro por destino
     if (destino && destino !== 'Todos') {
         if (destino === 'No aplica') {
@@ -334,7 +339,7 @@ function limpiarFiltros() {
     document.getElementById('filtro-fecha').value = '';
     document.getElementById('filtro-pago').value = 'Todos';
     document.getElementById('filtro-contenido').value = 'Todos';
-    
+    document.getElementById('filtro-envio').value = 'Todos';
     // Restablecer el selector de tipo de fecha a "Fecha de registro"
     document.querySelector('input[name="tipo-fecha"][value="registro"]').checked = true;
     tipoFechaFiltro = 'registro';
@@ -697,7 +702,8 @@ document.addEventListener('DOMContentLoaded', function() {
       'filtro-fecha-tipo',
       'filtro-fecha',
       'filtro-pago',        // 👈 nuevo
-      'filtro-contenido'    // 👈 nuevo
+      'filtro-contenido',    // 👈 nuevo
+      'filtro-envio'
     ].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('change', aplicarFiltros);

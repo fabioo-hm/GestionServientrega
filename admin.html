@@ -184,6 +184,15 @@
                     </select>
                 </div>
                 
+                <div class="form-group">
+                    <label for="filtro-envio">Filtrar por tipo de envío:</label>
+                    <select id="filtro-envio">
+                        <option value="Todos">Todos</option>
+                        <option value="Retiro en oficina">Retiro en oficina</option>
+                        <option value="Entrega en dirección">Entrega en dirección</option>
+                    </select>
+                </div>
+                
                 <button onclick="aplicarFiltros()" class="btn">Aplicar Filtros</button>
                 <button onclick="limpiarFiltros()" class="btn btn-secondary">Limpiar Filtros</button>
                 <button onclick="exportarExcelFiltrado()" class="btn btn-export">Exportar Excel</button>
