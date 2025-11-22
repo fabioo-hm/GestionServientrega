@@ -74,14 +74,11 @@ formPaquete.addEventListener('submit', function(e) {
         destino,
         direccion,
         piezas, 
-        repartidor: '', // Inicialmente sin repartidor asignado
+        repartidor: '',
         intentos: 3,
         estado: 'Pendiente',
-        fecha: new Date().toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        }),
+        fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+        fechaTimestamp: new Date(), // Guarda también el timestamp exacto
         registrador: registrador
     };
     
@@ -93,55 +90,67 @@ formPaquete.addEventListener('submit', function(e) {
     alert('Paquete registrado con éxito!');
 });
 
-// Función para asignar repartidor directamente desde el select
 async function asignarRepartidor(codigo, selectElement) {
-  const repartidor = selectElement.value;
-  const paquete = paquetes.find(p => p.codigo === codigo);
+    const repartidor = selectElement.value;
+    const paquete = paquetes.find(p => p.codigo === codigo);
 
-  if (repartidor && paquete) {
-    paquete.repartidor = repartidor;
+    if (repartidor && paquete) {
+        paquete.repartidor = repartidor;
 
-    // Si es Repartidor 4 -> pedimos ubicación
-    if (repartidor === "Repartidor 4") {
-      let ubicacion = prompt("Selecciona ubicación (AL o SAN):", "AL");
-      ubicacion = ubicacion?.toUpperCase();
+        // Si es Repartidor 6 - Retiro Of., forzar retiro en oficina
+        if (repartidor === "Repartidor 6 - Retiro Of.") {
+            paquete.envio = "Retiro en oficina";
+            paquete.direccion = "Retiro en oficina";
+            paquete.destino = "No aplica";
+        }
 
-      if (ubicacion === "AL" || ubicacion === "SAN") {
-        paquete.destino = ubicacion; // 👈 Guardamos en destino
-      } else {
-        alert("Ubicación no válida, usando LA por defecto.");
-        paquete.destino = "AL";
-      }
+        // Si es Repartidor 4 -> pedimos ubicación
+        if (repartidor === "Repartidor 4") {
+            let ubicacion = prompt("Selecciona ubicación (AL o SAN):", "AL");
+            ubicacion = ubicacion?.toUpperCase();
+
+            if (ubicacion === "AL" || ubicacion === "SAN") {
+                paquete.destino = ubicacion;
+            } else {
+                alert("Ubicación no válida, usando AL por defecto.");
+                paquete.destino = "AL";
+            }
+        }
+
+        const { db, updateDoc, doc } = window.firestore;
+        const paqueteRef = doc(db, "paquetes", paquete.id);
+        
+        const datosActualizar = { 
+            repartidor: repartidor,
+            destino: paquete.destino || "" 
+        };
+        
+        // Si es Repartidor 6, actualizar también envío y dirección
+        if (repartidor === "Repartidor 6 - Retiro Of.") {
+            datosActualizar.envio = "Retiro en oficina";
+            datosActualizar.direccion = "Retiro en oficina";
+        }
+        
+        await updateDoc(paqueteRef, datosActualizar);
+        actualizarTabla();
     }
-
-    const { db, updateDoc, doc } = window.firestore;
-    const paqueteRef = doc(db, "paquetes", paquete.id);
-    await updateDoc(paqueteRef, { 
-      repartidor: repartidor,
-      destino: paquete.destino || "" 
-    });
-    actualizarTabla();
-  }
 }
 // Función para marcar como digitalizado
 async function marcarComoDigitalizado(codigo) {
-  const paquete = paquetes.find(p => p.codigo === codigo);
-  if (paquete) {
-    paquete.estado = 'Digitalizado';
-    paquete.fechaDigitalizacion = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    const { db, updateDoc, doc } = window.firestore;
-    const paqueteRef = doc(db, "paquetes", paquete.id);
-    await updateDoc(paqueteRef, {
-      estado: 'Digitalizado',
-      fechaDigitalizacion: paquete.fechaDigitalizacion
-    });
-    actualizarTabla();
-    alert('Paquete marcado como digitalizado');
-  }
+    const paquete = paquetes.find(p => p.codigo === codigo);
+    if (paquete) {
+        paquete.estado = 'Digitalizado';
+        paquete.fechaDigitalizacion = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        
+        const { db, updateDoc, doc } = window.firestore;
+        const paqueteRef = doc(db, "paquetes", paquete.id);
+        await updateDoc(paqueteRef, {
+            estado: 'Digitalizado',
+            fechaDigitalizacion: paquete.fechaDigitalizacion
+        });
+        actualizarTabla();
+        alert('Paquete marcado como digitalizado');
+    }
 }
 // Buscar paquete para modificar intentos
 let paqueteSeleccionado = null;
@@ -182,23 +191,20 @@ async function actualizarIntentos() {
 }
 // Marcar paquete como entregado
 async function marcarComoEntregado(codigo) {
-  const paquete = paquetes.find(p => p.codigo === codigo);
-  if (paquete) {
-    paquete.estado = 'Entregado';
-    paquete.fechaEntrega = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    const { db, updateDoc, doc } = window.firestore;
-    const paqueteRef = doc(db, "paquetes", paquete.id);
-    await updateDoc(paqueteRef, {
-      estado: 'Entregado',
-      fechaEntrega: paquete.fechaEntrega
-    });
-    actualizarTabla();
-    alert('Paquete marcado como entregado');
-  }
+    const paquete = paquetes.find(p => p.codigo === codigo);
+    if (paquete) {
+        paquete.estado = 'Entregado';
+        paquete.fechaEntrega = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        
+        const { db, updateDoc, doc } = window.firestore;
+        const paqueteRef = doc(db, "paquetes", paquete.id);
+        await updateDoc(paqueteRef, {
+            estado: 'Entregado',
+            fechaEntrega: paquete.fechaEntrega
+        });
+        actualizarTabla();
+        alert('Paquete marcado como entregado');
+    }
 }
 // Aplicar múltiples filtros
 function aplicarFiltros() {
@@ -362,15 +368,18 @@ function exportarExcelFiltrado() {
         'Repartidor': p.repartidor || 'Sin asignar',
         'Intentos': p.intentos,
         'Estado': p.estado,
-        'Fecha registro': p.fecha,
-        'Fecha entrega': p.fechaEntrega || 'No entregado',
-        'Fecha digitalización': p.fechaDigitalizacion || 'No digitalizado'
+        'Fecha registro': formatearFechaParaMostrar(p.fecha),
+        'Fecha entrega': p.fechaEntrega ? formatearFechaParaMostrar(p.fechaEntrega) : 'No entregado',
+        'Fecha digitalización': p.fechaDigitalizacion ? formatearFechaParaMostrar(p.fechaDigitalizacion) : 'No digitalizado'
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Paquetes");
-    XLSX.writeFile(wb, `control_paquetes_${new Date().toISOString().slice(0,10)}.xlsx`);
+    
+    // Usar fecha actual en el nombre del archivo
+    const fechaDescarga = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `control_paquetes_${fechaDescarga}.xlsx`);
 }
 
 // Actualizar tabla de paquetes
@@ -410,6 +419,7 @@ function actualizarTabla() {
                 <option value="Repartidor 3">Repartidor 3</option>
                 <option value="Repartidor 4">Repartidor 4</option>
                 <option value="Repartidor 5">Repartidor 5</option>
+                <option value="Repartidor 6 - Retiro Of.">Repartidor 6 - Retiro Of.</option>
             `;
 
             // Preseleccionar si ya tiene repartidor asignado
@@ -473,9 +483,8 @@ function actualizarTabla() {
         row.insertCell(8).textContent = paquete.intentos;
 
         // Fecha
-        row.insertCell(9).textContent = paquete.fecha;
-        
-        row.insertCell(10).textContent = paquete.fechaEntrega || '-';
+        row.insertCell(9).textContent = formatearFechaParaMostrar(paquete.fecha);
+        row.insertCell(10).textContent = formatearFechaParaMostrar(paquete.fechaEntrega);
 
         // Estado
         const estadoCell = row.insertCell(11);
@@ -977,6 +986,33 @@ async function confirmarEdicion() {
         console.error("Error al guardar cambios:", error);
         alert("❌ Error al guardar los cambios");
     }
+}
+
+function formatearFechaParaMostrar(fecha) {
+    if (!fecha) return '-';
+    
+    // Si ya está en formato DD/MM/YYYY, déjalo igual
+    if (typeof fecha === 'string' && fecha.includes('/')) {
+        return fecha;
+    }
+    
+    // Si está en formato YYYY-MM-DD, conviértelo
+    if (typeof fecha === 'string' && fecha.includes('-')) {
+        const [year, month, day] = fecha.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Para timestamp de Firestore
+    if (fecha.toDate) {
+        const date = fecha.toDate();
+        return date.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+    
+    return '-';
 }
 
 // Función auxiliar para convertir fechas
