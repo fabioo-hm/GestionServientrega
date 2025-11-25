@@ -77,7 +77,7 @@ formPaquete.addEventListener('submit', function(e) {
         repartidor: '',
         intentos: 3,
         estado: 'Pendiente',
-        fecha: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+        fecha: new Date().toLocaleDateString('es-ES'), // Formato DD/MM/YYYY
         fechaTimestamp: new Date(), // Guarda también el timestamp exacto
         registrador: registrador
     };
@@ -208,7 +208,7 @@ async function marcarComoEntregado(codigo) {
 }
 // Aplicar múltiples filtros
 function aplicarFiltros() {
-    paquetesFiltrados = [...paquetes]; // Copia del array original
+    paquetesFiltrados = [...paquetes];
     
     const repartidor = document.getElementById('filtro-repartidor').value.trim();
     const codigo = document.getElementById('filtro-codigo').value.trim();
@@ -219,23 +219,11 @@ function aplicarFiltros() {
     const pago = document.getElementById('filtro-pago').value.trim();
     const contenido = document.getElementById('filtro-contenido').value.trim();
     const envio = document.getElementById('filtro-envio').value.trim();
+    
     // Filtro por repartidor
     if (repartidor && repartidor !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.repartidor && p.repartidor.toLowerCase() === repartidor.toLowerCase()
-        );
-    }
-
-    if (pago && pago !== 'Todos') {
-        paquetesFiltrados = paquetesFiltrados.filter(p => 
-            p.pago && p.pago.toLowerCase() === pago.toLowerCase()
-        );
-    }
-
-    // ✅ Filtro por contenido
-    if (contenido && contenido !== 'Todos') {
-        paquetesFiltrados = paquetesFiltrados.filter(p => 
-            p.contenido && p.contenido.toLowerCase() === contenido.toLowerCase()
         );
     }
 
@@ -253,11 +241,6 @@ function aplicarFiltros() {
         );
     }
 
-    if (envio && envio !== 'Todos') {
-        paquetesFiltrados = paquetesFiltrados.filter(p => 
-            p.envio && p.envio.toLowerCase() === envio.toLowerCase()
-        );
-    }
     // Filtro por destino
     if (destino && destino !== 'Todos') {
         if (destino === 'No aplica') {
@@ -268,8 +251,29 @@ function aplicarFiltros() {
             );
         }
     }
+
+    // Filtro por pago
+    if (pago && pago !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.pago && p.pago.toLowerCase() === pago.toLowerCase()
+        );
+    }
+
+    // Filtro por contenido
+    if (contenido && contenido !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.contenido && p.contenido.toLowerCase() === contenido.toLowerCase()
+        );
+    }
+
+    // Filtro por envío
+    if (envio && envio !== 'Todos') {
+        paquetesFiltrados = paquetesFiltrados.filter(p => 
+            p.envio && p.envio.toLowerCase() === envio.toLowerCase()
+        );
+    }
     
-    // Filtro por fecha - VERSIÓN MEJORADA CON SELECCIÓN DE TIPO DE FECHA
+    // ✅ FILTRO DE FECHAS CORREGIDO
     if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
             let fechaBase = null;
@@ -283,10 +287,21 @@ function aplicarFiltros() {
             
             if (!fechaBase) return false;
 
-            const [day, month, year] = fechaBase.split("/");
-            if (!day || !month || !year) return false;
-
-            const fechaPaquete = new Date(`${year}-${month}-${day}`);
+            // ✅ DETECTAR AUTOMÁTICAMENTE EL FORMATO DE FECHA
+            let fechaPaquete;
+            
+            if (fechaBase.includes('/')) {
+                // Formato DD/MM/YYYY
+                const [day, month, year] = fechaBase.split("/");
+                fechaPaquete = new Date(`${year}-${month}-${day}`);
+            } else if (fechaBase.includes('-')) {
+                // Formato YYYY-MM-DD
+                fechaPaquete = new Date(fechaBase);
+            } else {
+                // Timestamp de Firestore
+                fechaPaquete = fechaBase.toDate ? fechaBase.toDate() : new Date(fechaBase);
+            }
+            
             fechaPaquete.setHours(0, 0, 0, 0);
 
             if (fechaTipo === 'antes' || fechaTipo === 'despues' || fechaTipo === 'igual') {
@@ -312,19 +327,7 @@ function aplicarFiltros() {
                 fechaInicio.setHours(0, 0, 0, 0);
                 fechaFin.setHours(0, 0, 0, 0);
 
-                // Para intervalo, usar la fecha seleccionada (registro o digitalización)
-                let fechaComparar = null;
-                if (tipoFechaFiltro === 'digitalizacion' && p.fechaDigitalizacion) {
-                    const [day, month, year] = p.fechaDigitalizacion.split("/");
-                    fechaComparar = new Date(`${year}-${month}-${day}`);
-                    fechaComparar.setHours(0, 0, 0, 0);
-                } else if (p.fecha) {
-                    const [day, month, year] = p.fecha.split("/");
-                    fechaComparar = new Date(`${year}-${month}-${day}`);
-                    fechaComparar.setHours(0, 0, 0, 0);
-                }
-                
-                return fechaComparar && fechaComparar >= fechaInicio && fechaComparar <= fechaFin;
+                return fechaPaquete >= fechaInicio && fechaPaquete <= fechaFin;
             }
             return true;
         });
@@ -991,18 +994,7 @@ async function confirmarEdicion() {
 function formatearFechaParaMostrar(fecha) {
     if (!fecha) return '-';
     
-    // Si ya está en formato DD/MM/YYYY, déjalo igual
-    if (typeof fecha === 'string' && fecha.includes('/')) {
-        return fecha;
-    }
-    
-    // Si está en formato YYYY-MM-DD, conviértelo
-    if (typeof fecha === 'string' && fecha.includes('-')) {
-        const [year, month, day] = fecha.split('-');
-        return `${day}/${month}/${year}`;
-    }
-    
-    // Para timestamp de Firestore
+    // Si es timestamp de Firestore
     if (fecha.toDate) {
         const date = fecha.toDate();
         return date.toLocaleDateString('es-ES', {
@@ -1010,6 +1002,17 @@ function formatearFechaParaMostrar(fecha) {
             month: '2-digit',
             year: 'numeric'
         });
+    }
+    
+    // Si ya está en formato DD/MM/YYYY
+    if (typeof fecha === 'string' && fecha.includes('/')) {
+        return fecha;
+    }
+    
+    // Si está en formato YYYY-MM-DD, convertirlo
+    if (typeof fecha === 'string' && fecha.includes('-')) {
+        const [year, month, day] = fecha.split('-');
+        return `${day}/${month}/${year}`;
     }
     
     return '-';
