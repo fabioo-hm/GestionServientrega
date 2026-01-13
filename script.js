@@ -1,11 +1,8 @@
 let paquetes = [];
 let paquetesFiltrados = [];
 let paginaActual = 1;
-const paquetesPorPagina = 150;
+const paquetesPorPagina = 50;
 let paquetesFiltradosGlobal = []; // contendrá todos los paquetes filtrados
-
-// Detectar usuario logueado
-// script.js
 
 window.listenAuthChanges((user) => {
   if (user) {
@@ -25,8 +22,6 @@ window.listenAuthChanges((user) => {
     console.log("⚠️ No hay usuario logueado");
   }
 });
-
-
 
 // Elementos del DOM
 const formPaquete = document.getElementById('formPaquete');
@@ -170,7 +165,6 @@ async function buscarPaquete() {
     document.getElementById("info-paquete").classList.add("hidden");
   }
 }
-
 // Actualizar intentos de entrega
 async function actualizarIntentos() {
   const codigo = document.getElementById('buscar-codigo').value;
@@ -218,29 +212,25 @@ function aplicarFiltros() {
     const fecha = document.getElementById('filtro-fecha').value;
     const pago = document.getElementById('filtro-pago').value.trim();
     const contenido = document.getElementById('filtro-contenido').value.trim();
-    const envio = document.getElementById('filtro-envio').value.trim();
-    
+    const envio = document.getElementById('filtro-envio').value.trim();   
     // Filtro por repartidor
     if (repartidor && repartidor !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.repartidor && p.repartidor.toLowerCase() === repartidor.toLowerCase()
         );
     }
-
     // Filtro por código
     if (codigo) {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.codigo && p.codigo.toLowerCase().includes(codigo.toLowerCase())
         );
     }
-
     // Filtro por estado
     if (estado && estado !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.estado && p.estado.toLowerCase() === estado.toLowerCase()
         );
     }
-
     // Filtro por destino
     if (destino && destino !== 'Todos') {
         if (destino === 'No aplica') {
@@ -251,28 +241,24 @@ function aplicarFiltros() {
             );
         }
     }
-
     // Filtro por pago
     if (pago && pago !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.pago && p.pago.toLowerCase() === pago.toLowerCase()
         );
     }
-
     // Filtro por contenido
     if (contenido && contenido !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.contenido && p.contenido.toLowerCase() === contenido.toLowerCase()
         );
     }
-
     // Filtro por envío
     if (envio && envio !== 'Todos') {
         paquetesFiltrados = paquetesFiltrados.filter(p => 
             p.envio && p.envio.toLowerCase() === envio.toLowerCase()
         );
     }
-    
     // ✅ FILTRO DE FECHAS CORREGIDO
     if (fechaTipo !== 'todas') {
         paquetesFiltrados = paquetesFiltrados.filter(p => {
@@ -283,10 +269,8 @@ function aplicarFiltros() {
                 fechaBase = p.fechaDigitalizacion;
             } else {
                 fechaBase = p.fecha; // Por defecto, fecha de registro
-            }
-            
+            } 
             if (!fechaBase) return false;
-
             // ✅ DETECTAR AUTOMÁTICAMENTE EL FORMATO DE FECHA
             let fechaPaquete;
             
@@ -301,9 +285,7 @@ function aplicarFiltros() {
                 // Timestamp de Firestore
                 fechaPaquete = fechaBase.toDate ? fechaBase.toDate() : new Date(fechaBase);
             }
-            
             fechaPaquete.setHours(0, 0, 0, 0);
-
             if (fechaTipo === 'antes' || fechaTipo === 'despues' || fechaTipo === 'igual') {
                 if (!fecha) return true;
                 const fechaFiltro = new Date(fecha);
@@ -332,7 +314,6 @@ function aplicarFiltros() {
             return true;
         });
     }
-    
     paquetesFiltradosGlobal = paquetesFiltrados;
     paginaActual = 1;
     actualizarTabla();
@@ -352,11 +333,9 @@ function limpiarFiltros() {
     // Restablecer el selector de tipo de fecha a "Fecha de registro"
     document.querySelector('input[name="tipo-fecha"][value="registro"]').checked = true;
     tipoFechaFiltro = 'registro';
-    
     paquetesFiltrados = [];
     actualizarTabla();
 }
-
 // Exportar a Excel los resultados filtrados
 function exportarExcelFiltrado() {
     const data = (paquetesFiltrados.length > 0 ? paquetesFiltrados : paquetes).map(p => ({
@@ -378,15 +357,12 @@ function exportarExcelFiltrado() {
         'Fecha digitalización': p.fechaDigitalizacion ? formatearFechaParaMostrar(p.fechaDigitalizacion) : 'No digitalizado',
         'Notas': p.activo === false ? 'Versión anterior inactiva' : 'Versión activa actual'
     }));
-    
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Paquetes (Última versión)");
-    
     const fechaDescarga = new Date().toISOString().split('T')[0];
     XLSX.writeFile(wb, `control_paquetes_ultima_version_${fechaDescarga}.xlsx`);
 }
-
 // Actualizar tabla de paquetes
 function actualizarTabla() {
     const tablaBody = tablaPaquetes; // ya tienes esta referencia al tbody
@@ -394,42 +370,29 @@ function actualizarTabla() {
 
     // si no hay datos, limpiamos resumen y controles
     if (!Array.isArray(paquetesFiltradosGlobal)) paquetesFiltradosGlobal = [];
-
     const total = paquetesFiltradosGlobal.length;
     const inicio = (paginaActual - 1) * paquetesPorPagina;
     const fin = inicio + paquetesPorPagina;
     const paginaPaquetes = paquetesFiltradosGlobal.slice(inicio, fin);
-
     const { db, collection, query, where, getDocs } = window.firestore;
-    
     paginaPaquetes.forEach(async (paquete) => {
-        const row = tablaPaquetes.insertRow();
-        
+        const row = tablaPaquetes.insertRow();  
         // Registrador
         row.insertCell(0).textContent = paquete.registrador || '-';
-        
         // Código con indicador de duplicados
         const codigoCell = row.insertCell(1);
         codigoCell.textContent = paquete.codigo;
-        
         // 🔍 Verificar si hay versiones anteriores
         try {
             const paquetesRef = collection(db, "paquetes");
             const q = query(paquetesRef, where("codigo", "==", paquete.codigo));
             const querySnapshot = await getDocs(q);
             const totalVersiones = querySnapshot.size;
-
-            // ✔️ Aquí puedes usar totalVersiones internamente si lo necesitas
-            // pero no mostramos nada en la interfaz
-
         } catch (e) {
             console.error("Error verificando versiones:", e);
         }
-        
-        // ... resto de las celdas (piezas, dirección, etc.) ...
         row.insertCell(2).textContent = paquete.piezas || 1;
         row.insertCell(3).textContent = paquete.direccion;
-
         // Repartidor
         const repartidorCell = row.insertCell(4);
         if (paquete.envio === 'Entrega en dirección') {
@@ -444,18 +407,14 @@ function actualizarTabla() {
                 <option value="Repartidor 5">Repartidor 5</option>
                 <option value="Repartidor 6 - Retiro Of.">Repartidor 6 - Retiro Of.</option>
             `;
-
             // Preseleccionar si ya tiene repartidor asignado
             if (paquete.repartidor) {
                 select.value = paquete.repartidor;
             }
-
             // Contenedor para el segundo select (ubicación)
             const ubicacionContainer = document.createElement("div");
-
             select.addEventListener('change', async () => {
                 await asignarRepartidor(paquete.codigo, select);
-
                 // Si es Repartidor 4 -> mostrar segundo select
                 ubicacionContainer.innerHTML = ""; // limpiar antes de agregar
                 if (select.value === "Repartidor 4") {
@@ -465,12 +424,10 @@ function actualizarTabla() {
                         <option value="AL">AL</option>
                         <option value="SAN">SAN</option>
                     `;
-
                     // Preseleccionar si ya tiene destino
                     if (paquete.destino) {
                         ubicacionSelect.value = paquete.destino;
                     }
-
                     ubicacionSelect.addEventListener("change", async () => {
                         const ubicacion = ubicacionSelect.value;
                         if (ubicacion) {
@@ -481,42 +438,31 @@ function actualizarTabla() {
                             actualizarTabla();
                         }
                     });
-
                     ubicacionContainer.appendChild(ubicacionSelect);
                 }
             });
-
             repartidorCell.appendChild(select);
             repartidorCell.appendChild(ubicacionContainer);
-
         } else {
             repartidorCell.textContent = 'N/A';
         }
-
         // Destino
         row.insertCell(5).textContent = paquete.destino || 'No aplica';
-
         // Método de pago
         row.insertCell(6).textContent = paquete.pago || 'N/A';
-
         // Contenido
         row.insertCell(7).textContent = paquete.contenido || 'N/A';
-
         // Intentos
         row.insertCell(8).textContent = paquete.intentos;
-
         // Fecha
         row.insertCell(9).textContent = formatearFechaParaMostrar(paquete.fecha);
         row.insertCell(10).textContent = formatearFechaParaMostrar(paquete.fechaEntrega);
-
         // Estado
         const estadoCell = row.insertCell(11);
         estadoCell.textContent = paquete.estado;
-
         // Acciones
         const accionCell = row.insertCell(12);
         accionCell.className = 'accion-cell';
-
         
         // Botón para marcar como entregado
         if (
@@ -579,7 +525,6 @@ function renderizarPagina() {
     actualizarResumen(paquetesFiltradosGlobal);   // ✅ resumen del total filtrado
     renderizarControlesPaginacion();              // muestra controles
 }
-
 
 function renderizarControlesPaginacion() {
   const contenedor = document.getElementById("paginacion");
@@ -691,7 +636,6 @@ function openTab(tabName) {
 
 // ✅ Hacemos la función global
 window.openTab = openTab;
-
 
 async function cargarPaquetesFirestore() {
   try {
@@ -856,14 +800,12 @@ async function buscarPaqueteEliminar() {
     const paqueteData = paqueteDoc.data();
 
     document.getElementById("info-eliminar").dataset.docId = paqueteDoc.id;
-
     document.getElementById("eliminar-codigo").textContent = paqueteData.codigo || "";
     document.getElementById("eliminar-direccion").textContent = paqueteData.direccion || "";
     document.getElementById("eliminar-destino").textContent = paqueteData.destino || "";
     document.getElementById("eliminar-pago").textContent = paqueteData.pago || "";
     document.getElementById("eliminar-estado").textContent = paqueteData.estado || "";
     document.getElementById("eliminar-repartidor").textContent = paqueteData.repartidor || "";
-
     document.getElementById("info-eliminar").classList.remove("hidden");
 }
 
@@ -1418,32 +1360,26 @@ async function verHistorialCodigo(codigo) {
             bottom: 0;
             background: rgba(0,0,0,0.5);
             z-index: 999;
-        `;
-        
+        `;        
         overlay.onclick = () => {
             document.body.removeChild(modal);
             document.body.removeChild(overlay);
-        };
-        
+        };       
         modal.innerHTML = historialHTML + `
             <button id="cerrarHistorial" style="margin-top:10px;">Cerrar</button>
         `;
-
         document.body.appendChild(overlay);
         document.body.appendChild(modal);
-
         // 🔹 Ahora sí el botón existe en el DOM
         document.getElementById("cerrarHistorial").onclick = () => {
             document.body.removeChild(modal);
             document.body.removeChild(overlay);
         };
-
     } catch (e) {
         console.error("Error cargando historial del código:", e);
         alert("Error al cargar el historial");
     }
 }
-
 // Exponer funciones al HTML
 window.openTab = openTab;
 window.aplicarFiltros = aplicarFiltros;
@@ -1463,7 +1399,3 @@ window.cargarHistorialFirestore = cargarHistorialFirestore;
 window.aplicarFiltrosHistorial = aplicarFiltrosHistorial;
 window.limpiarFiltrosHistorial = limpiarFiltrosHistorial;
 window.verHistorialCodigo = verHistorialCodigo;
-
-
-
-

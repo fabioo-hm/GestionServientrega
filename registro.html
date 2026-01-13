@@ -166,7 +166,6 @@
                         <input type="date" id="fecha-fin">
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label for="filtro-pago">Filtrar por método de pago:</label>
                     <select id="filtro-pago">
@@ -175,7 +174,6 @@
                         <option value="Contraentrega">Contraentrega</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label for="filtro-contenido">Filtrar por contenido:</label>
                     <select id="filtro-contenido">
@@ -184,7 +182,6 @@
                         <option value="Documentos">Documentos</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label for="filtro-envio">Filtrar por tipo de envío:</label>
                     <select id="filtro-envio">
@@ -198,14 +195,12 @@
                 <button onclick="limpiarFiltros()" class="btn btn-secondary">Limpiar Filtros</button>
                 <button onclick="exportarExcelFiltrado()" class="btn btn-export">Exportar Excel</button>
             </div>
-
             <div class="comparar-container">
                 <h3>Comparar con archivo Excel</h3>
                 <input type="file" id="archivo-excel" accept=".xlsx,.xls" />
                 <button onclick="compararExcel()" class="btn">Comparar archivo</button>
                 <div id="resultado-comparacion"></div>
             </div>
-
             
             <div class="resumen">
                 <p>Total paquetes: <span id="total-paquetes">0</span></p>
@@ -267,14 +262,12 @@
         </div>
         <div id="eliminar" class="tab-content">
             <h2>Eliminar Paquete</h2>
-
             <!-- Buscar paquete -->
             <div class="form-group">
                 <label for="codigo-eliminar">Ingrese código de pedido:</label>
                 <input type="text" id="codigo-eliminar" placeholder="Ej: PED12345">
                 <button onclick="buscarPaqueteEliminar()" class="btn">Buscar</button>
             </div>
-
             <!-- Información del paquete -->
             <div id="info-eliminar" class="hidden">
                 <h3>Información del Paquete</h3>
@@ -284,7 +277,6 @@
                 <p><strong>Pago:</strong> <span id="eliminar-pago"></span></p>
                 <p><strong>Estado:</strong> <span id="eliminar-estado"></span></p>
                 <p><strong>Repartidor:</strong> <span id="eliminar-repartidor"></span></p>
-
                 <!-- Botón para eliminar -->
                 <button onclick="eliminarPaqueteConPassword()" 
                         class="btn" 
@@ -406,7 +398,6 @@
     <script>
         // Agregar esta variable global para controlar el tipo de fecha seleccionada
         let tipoFechaFiltro = 'registro'; // 'registro' o 'digitalizacion'
-        
         // Función para actualizar la variable global cuando cambie la selección
         function actualizarTipoFechaFiltro() {
             const radioSeleccionado = document.querySelector('input[name="tipo-fecha"]:checked');
@@ -414,7 +405,6 @@
                 tipoFechaFiltro = radioSeleccionado.value;
             }
         }
-        
         // Agregar event listeners a los radio buttons
         document.addEventListener('DOMContentLoaded', function() {
             const radiosTipoFecha = document.querySelectorAll('input[name="tipo-fecha"]');
