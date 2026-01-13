@@ -384,3 +384,72 @@ td {
     font-size: 15px;
     color: #333;
 }
+
+#tabla-historial {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+#tabla-historial th, #tabla-historial td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#tabla-historial th {
+    background-color: #f2f2f2;
+}
+
+.historial-edicion {
+    background-color: #e8f4fd;
+}
+
+.historial-eliminacion {
+    background-color: #fde8e8;
+}
+
+.cambios-lista {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.cambios-lista li {
+    margin: 3px 0;
+    padding: 2px 5px;
+    background-color: #f9f9f9;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.btn-historial {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+
+.btn-historial:hover {
+    background: #5a6268;
+}
+
+.historial-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+.historial-table th, .historial-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.historial-table th {
+    background-color: #f2f2f2;
+}

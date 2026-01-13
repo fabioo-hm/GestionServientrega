@@ -38,6 +38,7 @@
             <button class="tab-button" onclick="openTab('modificar')">Modificar Intentos</button>
             <button class="tab-button" onclick="openTab('eliminar')">Eliminar Guía</button>
             <button class="tab-button" onclick="openTab('editar')">Editar Paquete</button>
+            <button class="tab-button" onclick="openTab('historial')">Historial de Cambios</button>
         </div>
         
         <div id="registro" class="tab-content active">
@@ -226,7 +227,7 @@
                         <th>Destino</th>
                         <th>Método de pago</th>
                         <th>Contenido</th> 
-                        <th>Intentos</th>
+                        <th>Int.</th>
                         <th class="fecha-col">Fecha Registro</th>
                         <th class="fecha-col">Fecha Entregado</th>
                         <th>Estado</th>
@@ -292,7 +293,8 @@
                     Eliminar Paquete
                 </button>
             </div>
-            <div id="editar" class="tab-content">
+        </div>
+        <div id="editar" class="tab-content">
                 <h2>Editar Información de Paquete</h2>
                 <div class="form-group">
                     <label for="editar-codigo">Ingrese código de pedido:</label>
@@ -399,7 +401,46 @@
                         <button type="button" onclick="cancelarEdicion()" class="btn btn-secondary">Cancelar</button>
                     </form>
                 </div>
+        </div>
+        <div id="historial" class="tab-content">
+            <h2>Historial de Cambios</h2>
+            
+            <div class="filtros-container">
+                <div class="form-group">
+                    <label for="filtro-historial-codigo">Buscar por código:</label>
+                    <input type="text" id="filtro-historial-codigo" placeholder="Ingrese código">
+                </div>
+                
+                <div class="form-group">
+                    <label for="filtro-historial-accion">Filtrar por acción:</label>
+                    <select id="filtro-historial-accion">
+                        <option value="Todas">Todas</option>
+                        <option value="edicion">Edición</option>
+                        <option value="eliminacion">Eliminación</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="filtro-historial-fecha">Filtrar por fecha:</label>
+                    <input type="date" id="filtro-historial-fecha">
+                </div>
+                
+                <button onclick="aplicarFiltrosHistorial()" class="btn">Aplicar Filtros</button>
+                <button onclick="limpiarFiltrosHistorial()" class="btn btn-secondary">Limpiar</button>
             </div>
+            
+            <table id="tabla-historial">
+                <thead>
+                    <tr>
+                        <th>Fecha y Hora</th>
+                        <th>Código</th>
+                        <th>Acción</th>
+                        <th>Detalles del Cambio</th>
+                        <th>Usuario</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
     </div>
     <script type="module" src="script.js"></script>

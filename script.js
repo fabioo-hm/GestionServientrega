@@ -1,7 +1,7 @@
 let paquetes = [];
 let paquetesFiltrados = [];
 let paginaActual = 1;
-const paquetesPorPagina = 200;
+const paquetesPorPagina = 150;
 let paquetesFiltradosGlobal = []; // contendrá todos los paquetes filtrados
 
 // Detectar usuario logueado
@@ -362,6 +362,7 @@ function exportarExcelFiltrado() {
     const data = (paquetesFiltrados.length > 0 ? paquetesFiltrados : paquetes).map(p => ({
         'Registrador': p.registrador || 'N/A',
         'Código': p.codigo,
+        'Versión': 'Última', // Indicar que es la última versión
         'Piezas': p.piezas,
         'Método de pago': p.pago,
         'Tipo de envío': p.envio,
@@ -372,17 +373,18 @@ function exportarExcelFiltrado() {
         'Intentos': p.intentos,
         'Estado': p.estado,
         'Fecha registro': formatearFechaParaMostrar(p.fecha),
+        'Fecha ingreso': p.fechaIngreso ? formatearFechaParaMostrar(p.fechaIngreso) : 'N/A',
         'Fecha entrega': p.fechaEntrega ? formatearFechaParaMostrar(p.fechaEntrega) : 'No entregado',
-        'Fecha digitalización': p.fechaDigitalizacion ? formatearFechaParaMostrar(p.fechaDigitalizacion) : 'No digitalizado'
+        'Fecha digitalización': p.fechaDigitalizacion ? formatearFechaParaMostrar(p.fechaDigitalizacion) : 'No digitalizado',
+        'Notas': p.activo === false ? 'Versión anterior inactiva' : 'Versión activa actual'
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Paquetes");
+    XLSX.utils.book_append_sheet(wb, ws, "Paquetes (Última versión)");
     
-    // Usar fecha actual en el nombre del archivo
     const fechaDescarga = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `control_paquetes_${fechaDescarga}.xlsx`);
+    XLSX.writeFile(wb, `control_paquetes_ultima_version_${fechaDescarga}.xlsx`);
 }
 
 // Actualizar tabla de paquetes
@@ -398,16 +400,34 @@ function actualizarTabla() {
     const fin = inicio + paquetesPorPagina;
     const paginaPaquetes = paquetesFiltradosGlobal.slice(inicio, fin);
 
-    // renderiza solo los paquetes de la pagina
-    paginaPaquetes.forEach(paquete => {
+    const { db, collection, query, where, getDocs } = window.firestore;
+    
+    paginaPaquetes.forEach(async (paquete) => {
         const row = tablaPaquetes.insertRow();
+        
         // Registrador
         row.insertCell(0).textContent = paquete.registrador || '-';
-        // Código
-        row.insertCell(1).textContent = paquete.codigo;
+        
+        // Código con indicador de duplicados
+        const codigoCell = row.insertCell(1);
+        codigoCell.textContent = paquete.codigo;
+        
+        // 🔍 Verificar si hay versiones anteriores
+        try {
+            const paquetesRef = collection(db, "paquetes");
+            const q = query(paquetesRef, where("codigo", "==", paquete.codigo));
+            const querySnapshot = await getDocs(q);
+            const totalVersiones = querySnapshot.size;
 
+            // ✔️ Aquí puedes usar totalVersiones internamente si lo necesitas
+            // pero no mostramos nada en la interfaz
+
+        } catch (e) {
+            console.error("Error verificando versiones:", e);
+        }
+        
+        // ... resto de las celdas (piezas, dirección, etc.) ...
         row.insertCell(2).textContent = paquete.piezas || 1;
-        // Dirección
         row.insertCell(3).textContent = paquete.direccion;
 
         // Repartidor
@@ -521,6 +541,14 @@ function actualizarTabla() {
             btnDigitalizado.onclick = () => marcarComoDigitalizado(paquete.codigo);
             accionCell.appendChild(btnDigitalizado);
         }
+        // Celda de historial
+        const historialCell = row.insertCell(13); // Ajusta el índice según tu estructura
+        const btnHistorial = document.createElement('button');
+        btnHistorial.textContent = '📋 Historial';
+        btnHistorial.className = 'btn-historial';
+        btnHistorial.onclick = () => verHistorialCodigo(paquete.codigo);
+        btnHistorial.title = 'Ver todas las versiones de este código';
+        historialCell.appendChild(btnHistorial);
         
         // Colores para estados
         switch(paquete.estado) {
@@ -589,11 +617,50 @@ function actualizarResumen(paquetesMostrar) {
 
 async function guardarPaqueteFirestore(paquete) {
   try {
-    const { db, collection, addDoc } = window.firestore;
+    const { db, collection, addDoc, query, where, getDocs, updateDoc, doc } = window.firestore;
+    
+    // 🔍 Buscar si ya existe un paquete con el mismo código
+    const paquetesRef = collection(db, "paquetes");
+    const q = query(paquetesRef, where("codigo", "==", paquete.codigo));
+    const querySnapshot = await getDocs(q);
+    
+    // 📝 Marcar como inactivos los paquetes anteriores encontrados
+    for (const docSnapshot of querySnapshot.docs) {
+      const data = docSnapshot.data();
+      // Solo desactivar si está activo (no tiene activo: false)
+      if (data.activo !== false) {
+        const paqueteAnteriorRef = doc(db, "paquetes", docSnapshot.id);
+        await updateDoc(paqueteAnteriorRef, {
+          activo: false,
+          estadoAnterior: data.estado, // Guardar el estado anterior por si se necesita
+          fechaReemplazo: new Date().toISOString().split('T')[0],
+          reemplazadoPorRegistrador: window.registrador || "Desconocido"
+        });
+        
+        // 📋 Registrar en el historial que se desactivó por reemplazo
+        await window.registrarHistorial(
+          paquete.codigo,
+          "reemplazo",
+          { 
+            motivo: "Reemplazado por nuevo ingreso",
+            idAnterior: docSnapshot.id,
+            estadoAnterior: data.estado,
+            registradorAnterior: data.registrador || "N/A"
+          },
+          window.registrador
+        );
+      }
+    }
+    
+    // ✅ Ahora guardar el nuevo paquete como activo
+    paquete.activo = true;
+    paquete.esUltimo = true; // Marcar como el último
+    paquete.fechaIngreso = new Date().toISOString().split('T')[0];
     await addDoc(collection(db, "paquetes"), paquete);
-    console.log("Paquete guardado en Firestore");
+    
+    console.log("✅ Paquete guardado en Firestore (se desactivaron versiones anteriores)");
   } catch (e) {
-    console.error("Error guardando en Firestore: ", e);
+    console.error("❌ Error guardando en Firestore: ", e);
   }
 }
 
@@ -610,8 +677,6 @@ function openTab(tabName) {
 
     document.getElementById(tabName).classList.add('active');
 
-    // ⚠️ event.currentTarget no existe si llamas desde HTML con onclick
-    // Lo cambiamos para que funcione
     const boton = Array.from(tabButtons).find(btn =>
         btn.getAttribute("onclick")?.includes(`'${tabName}'`)
     );
@@ -619,6 +684,8 @@ function openTab(tabName) {
 
     if (tabName === 'consulta') {
         actualizarTabla();
+    } else if (tabName === 'historial') {
+        cargarHistorialFirestore();
     }
 }
 
@@ -628,19 +695,42 @@ window.openTab = openTab;
 
 async function cargarPaquetesFirestore() {
   try {
-    const { db, collection, getDocs } = window.firestore;
+    const { db, collection, getDocs, query, where, orderBy } = window.firestore;
+    
+    // Cargar TODOS los paquetes para poder identificar el último de cada código
     const querySnapshot = await getDocs(collection(db, "paquetes"));
     paquetes = [];
     querySnapshot.forEach((doc) => {
       paquetes.push({ id: doc.id, ...doc.data() });
     });
-
-    // inicializamos paginación
+    
+    // 🎯 Filtrar para mostrar solo el último de cada código
+    const codigosUnicos = new Map();
+    
+    // Ordenar por fechaTimestamp descendente para obtener el más reciente primero
+    paquetes.sort((a, b) => {
+      const fechaA = a.fechaTimestamp?.toDate ? a.fechaTimestamp.toDate() : new Date(a.fechaTimestamp || a.fecha);
+      const fechaB = b.fechaTimestamp?.toDate ? b.fechaTimestamp.toDate() : new Date(b.fechaTimestamp || b.fecha);
+      return fechaB - fechaA;
+    });
+    
+    // Tomar solo el primero (más reciente) de cada código
+    const paquetesUnicos = [];
+    paquetes.forEach(paquete => {
+      if (!codigosUnicos.has(paquete.codigo)) {
+        codigosUnicos.set(paquete.codigo, true);
+        paquetesUnicos.push(paquete);
+      }
+    });
+    
+    paquetes = paquetesUnicos;
+    
+    // Inicializar paginación
     paquetesFiltradosGlobal = paquetes.slice();
     paginaActual = 1;
-    actualizarTabla(); // ahora actualizarTabla manejará la paginación
+    actualizarTabla();
   } catch (e) {
-    console.error("Error cargando paquetes: ", e);
+    console.error("❌ Error cargando paquetes: ", e);
   }
 }
 
@@ -779,7 +869,9 @@ async function buscarPaqueteEliminar() {
 
 async function eliminarPaquete() {
     const docId = document.getElementById("info-eliminar").dataset.docId;
-    if (!docId) {
+    const codigo = document.getElementById("eliminar-codigo").textContent;
+    
+    if (!docId || !codigo) {
         alert("No hay paquete seleccionado para eliminar.");
         return;
     }
@@ -789,12 +881,36 @@ async function eliminarPaquete() {
     }
 
     try {
-        const { db, deleteDoc, doc } = window.firestore; // 👈 importante
-        await deleteDoc(doc(db, "paquetes", docId));
-
+        const { db, deleteDoc, doc, getDoc } = window.firestore;
+        const paqueteRef = doc(db, "paquetes", docId);
+        
+        // Obtener datos antes de eliminar
+        const paqueteSnapshot = await getDoc(paqueteRef);
+        const datosPaquete = paqueteSnapshot.data();
+        
+        // Registrar en historial ANTES de eliminar
+        await window.registrarHistorial(
+            codigo,
+            "eliminacion",
+            {
+                direccion: datosPaquete.direccion || "",
+                destino: datosPaquete.destino || "",
+                estado: datosPaquete.estado || "",
+                repartidor: datosPaquete.repartidor || ""
+            },
+            window.registrador
+        );
+        
+        // Eliminar el paquete
+        await deleteDoc(paqueteRef);
+        
         alert("✅ Paquete eliminado correctamente.");
         document.getElementById("info-eliminar").classList.add("hidden");
         document.getElementById("codigo-eliminar").value = "";
+        
+        // Recargar datos
+        cargarPaquetesFirestore();
+        cargarHistorialFirestore();
     } catch (error) {
         console.error("Error eliminando paquete: ", error);
         alert("❌ Hubo un error al eliminar el paquete.");
@@ -805,62 +921,110 @@ const PASSWORD_ELIMINAR = "ServientregaGerman123"; // <- cambia la contraseña s
 
 async function eliminarPaqueteConPassword() {
   try {
-    // 1) pedir contraseña
+    // 1) Pedir contraseña
     const inputPass = prompt("Ingrese la contraseña para eliminar el paquete:");
-    if (inputPass === null) {
-      // usuario canceló
-      return;
-    }
+    if (inputPass === null) return;
+
     if (inputPass !== PASSWORD_ELIMINAR) {
       alert("❌ Contraseña incorrecta. No se eliminó el paquete.");
       return;
     }
 
-    // 2) obtener docId (si fue guardado por buscarPaqueteEliminar)
+    // 2) Obtener docId guardado al buscar paquete
     const infoEl = document.getElementById("info-eliminar");
-    const docId = infoEl?.dataset?.docId; // puede ser undefined
-    const { db, doc, deleteDoc, collection, query, where, getDocs } = window.firestore;
+    const docId = infoEl?.dataset?.docId;
 
+    const { 
+      db, doc, deleteDoc, collection, 
+      query, where, getDocs, getDoc 
+    } = window.firestore;
+
+    // Si tenemos docId → flujo ideal
     if (docId) {
-      // eliminar directamente por ID (recomendado)
-      await deleteDoc(doc(db, "paquetes", docId));
+      const paqueteRef = doc(db, "paquetes", docId);
+
+      // 🔹 Obtener datos antes de eliminar
+      const paqueteSnapshot = await getDoc(paqueteRef);
+      if (!paqueteSnapshot.exists()) {
+        alert("❌ El paquete ya no existe en la base de datos.");
+        return;
+      }
+
+      const datosPaquete = paqueteSnapshot.data();
+
+      // 🔹 Registrar historial antes de borrar
+      await window.registrarHistorial(
+        datosPaquete.codigo || "",
+        "eliminacion",
+        {
+          direccion: datosPaquete.direccion || "",
+          destino: datosPaquete.destino || "",
+          estado: datosPaquete.estado || "",
+          repartidor: datosPaquete.repartidor || ""
+        },
+        window.registrador
+      );
+
+      // 🔹 Eliminar paquete
+      await deleteDoc(paqueteRef);
+
     } else {
-      // si no tenemos docId, buscamos por el campo 'codigo' visible
+      // Si no hay docId, buscar por código visible
       const codigo = (document.getElementById("eliminar-codigo").textContent || "").trim();
       if (!codigo) {
         alert("No hay paquete cargado para eliminar.");
         return;
       }
 
-      // buscamos documentos que tengan ese codigo
       const paquetesRef = collection(db, "paquetes");
       const q = query(paquetesRef, where("codigo", "==", codigo));
       const snapshot = await getDocs(q);
 
       if (snapshot.empty) {
-        alert("No se encontró ningún documento con ese código en Firestore.");
+        alert("❌ No se encontró ningún paquete con ese código.");
         return;
       }
 
-      // eliminamos todos los documentos que coincidan (si hay más de uno)
-      const deletes = snapshot.docs.map(d => deleteDoc(doc(db, "paquetes", d.id)));
-      await Promise.all(deletes);
+      // 🔹 Para cada coincidencia: registrar historial y eliminar
+      for (const d of snapshot.docs) {
+        const datosPaquete = d.data();
+
+        await window.registrarHistorial(
+          datosPaquete.codigo || "",
+          "eliminacion",
+          {
+            direccion: datosPaquete.direccion || "",
+            destino: datosPaquete.destino || "",
+            estado: datosPaquete.estado || "",
+            repartidor: datosPaquete.repartidor || ""
+          },
+          window.registrador
+        );
+
+        await deleteDoc(doc(db, "paquetes", d.id));
+      }
     }
 
-    // 3) post-eliminación: feedback y refrescar tabla
+    // 3) Feedback y refresco UI
     alert("✅ Paquete eliminado correctamente.");
     if (infoEl) infoEl.classList.add("hidden");
+
     const inputCodigo = document.getElementById("codigo-eliminar");
     if (inputCodigo) inputCodigo.value = "";
-    // recargamos desde Firestore para que la UI quede consistente
+
     if (typeof cargarPaquetesFirestore === "function") {
       cargarPaquetesFirestore();
     }
+    if (typeof cargarHistorialFirestore === "function") {
+      cargarHistorialFirestore();
+    }
+
   } catch (error) {
     console.error("Error eliminando paquete (con password):", error);
-    alert("❌ Ocurrió un error al eliminar el paquete. Revisa la consola.");
+    alert("❌ Ocurrió un error al eliminar el paquete.");
   }
 }
+
 let paqueteEditando = null;
 
 // Buscar paquete para editar
@@ -943,10 +1107,14 @@ async function confirmarEdicion() {
     }
 
     try {
-        const { db, updateDoc, doc } = window.firestore;
+        const { db, updateDoc, doc, getDoc } = window.firestore;
         const paqueteRef = doc(db, "paquetes", paqueteEditando.id);
         
-        // Recopilar datos del formulario
+        // Obtener datos anteriores
+        const paqueteSnapshot = await getDoc(paqueteRef);
+        const datosAnteriores = paqueteSnapshot.data();
+        
+        // Recopilar datos del formulario (igual que antes)
         const datosActualizados = {
             codigo: document.getElementById("editar-codigo-input").value,
             piezas: parseInt(document.getElementById("editar-piezas").value),
@@ -979,12 +1147,37 @@ async function confirmarEdicion() {
             datosActualizados.fechaDigitalizacion = convertirFechaADDMYYYY(fechaDigitalizacion);
         }
         
+        // Detectar cambios
+        const cambiosDetectados = {};
+        Object.keys(datosActualizados).forEach(key => {
+            if (JSON.stringify(datosAnteriores[key]) !== JSON.stringify(datosActualizados[key])) {
+                cambiosDetectados[key] = {
+                    anterior: datosAnteriores[key],
+                    nuevo: datosActualizados[key]
+                };
+            }
+        });
+        
+        // Solo registrar si hay cambios
+        if (Object.keys(cambiosDetectados).length > 0) {
+            // Registrar en historial
+            await window.registrarHistorial(
+                datosActualizados.codigo,
+                "edicion",
+                cambiosDetectados,
+                window.registrador
+            );
+        }
+        
         // Actualizar en Firestore
         await updateDoc(paqueteRef, datosActualizados);
         
         alert("✅ Cambios guardados correctamente");
         cancelarEdicion();
-        cargarPaquetesFirestore(); // Recargar datos
+        
+        // Recargar datos
+        cargarPaquetesFirestore();
+        cargarHistorialFirestore();
     } catch (error) {
         console.error("Error al guardar cambios:", error);
         alert("❌ Error al guardar los cambios");
@@ -1035,6 +1228,222 @@ function cancelarEdicion() {
     paqueteEditando = null;
 }
 
+// Variables para historial
+let historialCargado = [];
+let historialFiltrado = [];
+
+// Función para cargar historial desde Firestore
+async function cargarHistorialFirestore() {
+    try {
+        const { db, collection, getDocs, query, orderBy } = window.firestore;
+        const historialRef = collection(db, "historial");
+        const q = query(historialRef, orderBy("timestamp", "desc"));
+        const querySnapshot = await getDocs(q);
+        
+        historialCargado = [];
+        querySnapshot.forEach((doc) => {
+            historialCargado.push({ id: doc.id, ...doc.data() });
+        });
+        
+        historialFiltrado = [...historialCargado];
+        mostrarHistorial();
+    } catch (e) {
+        console.error("Error cargando historial:", e);
+    }
+}
+
+// Función para mostrar historial en la tabla
+function mostrarHistorial() {
+    const tablaBody = document.querySelector('#tabla-historial tbody');
+    if (!tablaBody) return;
+    
+    tablaBody.innerHTML = '';
+    
+    historialFiltrado.forEach(registro => {
+        const row = tablaBody.insertRow();
+        row.className = `historial-${registro.accion}`;
+        
+        // Formatear fecha
+        let fechaStr = 'N/A';
+        if (registro.fecha) {
+            const fecha = registro.fecha.toDate ? registro.fecha.toDate() : new Date(registro.fecha);
+            fechaStr = fecha.toLocaleString('es-ES');
+        }
+        
+        // Celda 1: Fecha y Hora
+        row.insertCell(0).textContent = fechaStr;
+        
+        // Celda 2: Código
+        row.insertCell(1).textContent = registro.codigo || 'N/A';
+        
+        // Celda 3: Acción
+        const accionCell = row.insertCell(2);
+        if (registro.accion === 'edicion') {
+            accionCell.textContent = '✏️ Edición';
+            accionCell.style.color = '#2196F3';
+        } else if (registro.accion === 'eliminacion') {
+            accionCell.textContent = '🗑️ Eliminación';
+            accionCell.style.color = '#F44336';
+        } else {
+            accionCell.textContent = registro.accion;
+        }
+        
+        // Celda 4: Detalles del cambio
+        const detallesCell = row.insertCell(3);
+        if (registro.accion === 'edicion' && registro.cambios) {
+            let html = '<ul class="cambios-lista">';
+            Object.entries(registro.cambios).forEach(([campo, valores]) => {
+                html += `<li><strong>${campo}:</strong> ${valores.anterior || 'N/A'} → ${valores.nuevo || 'N/A'}</li>`;
+            });
+            html += '</ul>';
+            detallesCell.innerHTML = html;
+        } else if (registro.accion === 'eliminacion') {
+            detallesCell.textContent = registro.cambios || 'Paquete eliminado';
+        }
+        
+        // Celda 5: Usuario
+        row.insertCell(4).textContent = registro.usuario || 'Desconocido';
+    });
+}
+
+// Función para aplicar filtros al historial
+function aplicarFiltrosHistorial() {
+    const codigo = document.getElementById('filtro-historial-codigo').value.trim().toLowerCase();
+    const accion = document.getElementById('filtro-historial-accion').value;
+    const fecha = document.getElementById('filtro-historial-fecha').value;
+    
+    historialFiltrado = historialCargado.filter(registro => {
+        // Filtro por código
+        if (codigo && registro.codigo) {
+            if (!registro.codigo.toLowerCase().includes(codigo)) return false;
+        }
+        
+        // Filtro por acción
+        if (accion !== 'Todas' && registro.accion !== accion) {
+            return false;
+        }
+        
+        // Filtro por fecha
+        if (fecha) {
+            const registroFecha = registro.fecha?.toDate ? 
+                registro.fecha.toDate().toISOString().split('T')[0] : 
+                new Date(registro.fecha).toISOString().split('T')[0];
+            if (registroFecha !== fecha) return false;
+        }
+        
+        return true;
+    });
+    
+    mostrarHistorial();
+}
+
+// Función para limpiar filtros del historial
+function limpiarFiltrosHistorial() {
+    document.getElementById('filtro-historial-codigo').value = '';
+    document.getElementById('filtro-historial-accion').value = 'Todas';
+    document.getElementById('filtro-historial-fecha').value = '';
+    historialFiltrado = [...historialCargado];
+    mostrarHistorial();
+}
+
+async function verHistorialCodigo(codigo) {
+    try {
+        const { db, collection, query, where, getDocs, orderBy } = window.firestore;
+        const paquetesRef = collection(db, "paquetes");
+        const q = query(paquetesRef, where("codigo", "==", codigo), orderBy("fechaTimestamp", "desc"));
+        const querySnapshot = await getDocs(q);
+        
+        let historialHTML = `<h3>Historial completo del código: ${codigo}</h3>`;
+        historialHTML += `<table class="historial-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Registrador</th>
+                    <th>Estado</th>
+                    <th>Dirección</th>
+                    <th>Activo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>`;
+        
+        let contador = 0;
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            contador++;
+            const fecha = data.fechaTimestamp?.toDate ? 
+                data.fechaTimestamp.toDate().toLocaleDateString('es-ES') : 
+                (data.fecha || 'N/A');
+            
+            historialHTML += `
+                <tr ${data.activo === false ? 'style="background-color: #f8f8f8; color: #999;"' : 'style="background-color: #e8f5e9;"'}>
+                    <td>${fecha}</td>
+                    <td>${data.registrador || 'N/A'}</td>
+                    <td>${data.estado || 'N/A'}</td>
+                    <td>${data.direccion || 'N/A'}</td>
+                    <td>${data.activo === false ? '❌ Inactivo' : '✅ Activo'}</td>
+                    <td>
+                        ${contador === 1 ? '<span style="color: green;">⬤ Última versión</span>' : ''}
+                    </td>
+                </tr>
+            `;
+        });
+        
+        historialHTML += `</tbody></table>`;
+        historialHTML += `<p><strong>Total de versiones:</strong> ${contador}</p>`;
+        
+        // Mostrar en un modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 80%;
+            max-height: 80%;
+            overflow: auto;
+        `;
+        
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        `;
+        
+        overlay.onclick = () => {
+            document.body.removeChild(modal);
+            document.body.removeChild(overlay);
+        };
+        
+        modal.innerHTML = historialHTML + `
+            <button id="cerrarHistorial" style="margin-top:10px;">Cerrar</button>
+        `;
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(modal);
+
+        // 🔹 Ahora sí el botón existe en el DOM
+        document.getElementById("cerrarHistorial").onclick = () => {
+            document.body.removeChild(modal);
+            document.body.removeChild(overlay);
+        };
+
+    } catch (e) {
+        console.error("Error cargando historial del código:", e);
+        alert("Error al cargar el historial");
+    }
+}
+
 // Exponer funciones al HTML
 window.openTab = openTab;
 window.aplicarFiltros = aplicarFiltros;
@@ -1050,5 +1459,11 @@ window.cambiarPagina = cambiarPagina;
 window.buscarPaqueteEditar = buscarPaqueteEditar;
 window.confirmarEdicion = confirmarEdicion;
 window.cancelarEdicion = cancelarEdicion;
+window.cargarHistorialFirestore = cargarHistorialFirestore;
+window.aplicarFiltrosHistorial = aplicarFiltrosHistorial;
+window.limpiarFiltrosHistorial = limpiarFiltrosHistorial;
+window.verHistorialCodigo = verHistorialCodigo;
+
+
 
 

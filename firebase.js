@@ -10,7 +10,8 @@ import {
   query,
   where,
   deleteDoc,
-  getDoc
+  getDoc,
+  orderBy
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
@@ -30,6 +31,24 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // 🔹 Exponer globalmente
-window.firestore = { db, collection, addDoc, getDocs, updateDoc, doc, query, where, deleteDoc, getDoc };
+window.firestore = { db, collection, addDoc, getDocs, updateDoc, doc, query, where, deleteDoc, getDoc, orderBy };
 window.firebaseAuth = auth;
 window.listenAuthChanges = (callback) => onAuthStateChanged(auth, callback);
+
+// Agrega estas funciones al objeto window.firestore
+window.registrarHistorial = async (codigo, accion, cambios, usuario) => {
+    try {
+        const historialRef = collection(db, "historial");
+        await addDoc(historialRef, {
+            codigo,
+            accion, // "edicion" o "eliminacion"
+            cambios, // Objeto con los detalles del cambio
+            usuario: usuario || window.registrador || "Desconocido",
+            fecha: new Date(),
+            timestamp: Date.now()
+        });
+        console.log("Historial registrado:", { codigo, accion });
+    } catch (e) {
+        console.error("Error registrando historial:", e);
+    }
+};
