@@ -91,7 +91,9 @@ async function asignarRepartidor(codigo, selectElement) {
 
     if (repartidor && paquete) {
         paquete.repartidor = repartidor;
-
+        // 🔥 GUARDAR FECHA DE ASIGNACIÓN/REASIGNACIÓN
+        paquete.fechaAsignacionRepartidor = new Date().toISOString();
+        
         // Si es Repartidor 6 - Retiro Of., forzar retiro en oficina
         if (repartidor === "Repartidor 6 - Retiro Of.") {
             paquete.envio = "Retiro en oficina";
@@ -117,6 +119,7 @@ async function asignarRepartidor(codigo, selectElement) {
         
         const datosActualizar = { 
             repartidor: repartidor,
+            fechaAsignacionRepartidor: paquete.fechaAsignacionRepartidor,
             destino: paquete.destino || "" 
         };
         
@@ -336,12 +339,12 @@ function limpiarFiltros() {
     paquetesFiltrados = [];
     actualizarTabla();
 }
-// Exportar a Excel los resultados filtrados
+// Exportar a Excel los resultados filtrados - MODIFICADA
 function exportarExcelFiltrado() {
     const data = (paquetesFiltrados.length > 0 ? paquetesFiltrados : paquetes).map(p => ({
         'Registrador': p.registrador || 'N/A',
         'Código': p.codigo,
-        'Versión': 'Última', // Indicar que es la última versión
+        'Versión': 'Última',
         'Piezas': p.piezas,
         'Método de pago': p.pago,
         'Tipo de envío': p.envio,
@@ -349,6 +352,10 @@ function exportarExcelFiltrado() {
         'Destino': p.destino || 'N/A',
         'Dirección': p.direccion,
         'Repartidor': p.repartidor || 'Sin asignar',
+        // 🔥 NUEVA COLUMNA: Fecha entregado al repartidor
+        'Fecha entregado al repartidor': p.fechaAsignacionRepartidor 
+            ? formatearFechaParaMostrar(p.fechaAsignacionRepartidor) 
+            : 'No asignado',
         'Intentos': p.intentos,
         'Estado': p.estado,
         'Fecha registro': formatearFechaParaMostrar(p.fecha),
@@ -357,6 +364,7 @@ function exportarExcelFiltrado() {
         'Fecha digitalización': p.fechaDigitalizacion ? formatearFechaParaMostrar(p.fechaDigitalizacion) : 'No digitalizado',
         'Notas': p.activo === false ? 'Versión anterior inactiva' : 'Versión activa actual'
     }));
+    
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Paquetes (Última versión)");
@@ -741,24 +749,6 @@ async function compararExcel() {
 // Inicializar
 document.addEventListener('DOMContentLoaded', function() {
     cargarPaquetesFirestore();
-    [
-      'filtro-repartidor',
-      'filtro-estado',
-      'filtro-destino',
-      'filtro-fecha-tipo',
-      'filtro-fecha',
-      'filtro-pago',        // 👈 nuevo
-      'filtro-contenido',    // 👈 nuevo
-      'filtro-envio'
-    ].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', aplicarFiltros);
-    });
-
-  // Búsqueda por código en vivo
-  const filtroCodigo = document.getElementById('filtro-codigo');
-  if (filtroCodigo) filtroCodigo.addEventListener('input', aplicarFiltros);
-
     document.getElementById('filtro-fecha-tipo').addEventListener('change', function () {
     const tipo = this.value;
     const filtroFecha = document.getElementById('filtro-fecha');
@@ -1043,6 +1033,7 @@ function mostrarFormularioEdicion(paquete) {
 }
 
 // Confirmar edición
+// Confirmar edición - MODIFICADA PARA ACTUALIZAR FECHA AL CAMBIAR REPARTIDOR
 async function confirmarEdicion() {
     if (!confirm("¿Está seguro de que desea guardar los cambios?")) {
         return;
@@ -1056,7 +1047,7 @@ async function confirmarEdicion() {
         const paqueteSnapshot = await getDoc(paqueteRef);
         const datosAnteriores = paqueteSnapshot.data();
         
-        // Recopilar datos del formulario (igual que antes)
+        // Recopilar datos del formulario
         const datosActualizados = {
             codigo: document.getElementById("editar-codigo-input").value,
             piezas: parseInt(document.getElementById("editar-piezas").value),
@@ -1068,6 +1059,17 @@ async function confirmarEdicion() {
             estado: document.getElementById("editar-estado").value,
             fecha: convertirFechaADDMYYYY(document.getElementById("editar-fecha").value)
         };
+        
+        // 🔥 ACTUALIZAR FECHA SI CAMBIA EL REPARTIDOR
+        const repartidorAnterior = datosAnteriores.repartidor || '';
+        const repartidorNuevo = datosActualizados.repartidor || '';
+        
+        if (repartidorNuevo && repartidorNuevo !== repartidorAnterior) {
+            datosActualizados.fechaAsignacionRepartidor = new Date().toISOString();
+        } else if (repartidorNuevo && repartidorNuevo === repartidorAnterior) {
+            // Mantener la fecha existente si no cambia
+            datosActualizados.fechaAsignacionRepartidor = datosAnteriores.fechaAsignacionRepartidor;
+        }
         
         // Manejar dirección y destino
         if (datosActualizados.envio === 'Entrega en dirección') {
@@ -1139,13 +1141,23 @@ function formatearFechaParaMostrar(fecha) {
         });
     }
     
+    // Si es un string ISO (como fechaAsignacionRepartidor)
+    if (typeof fecha === 'string' && fecha.includes('T')) {
+        const date = new Date(fecha);
+        return date.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }
+    
     // Si ya está en formato DD/MM/YYYY
     if (typeof fecha === 'string' && fecha.includes('/')) {
         return fecha;
     }
     
     // Si está en formato YYYY-MM-DD, convertirlo
-    if (typeof fecha === 'string' && fecha.includes('-')) {
+    if (typeof fecha === 'string' && fecha.includes('-') && fecha.length === 10) {
         const [year, month, day] = fecha.split('-');
         return `${day}/${month}/${year}`;
     }
