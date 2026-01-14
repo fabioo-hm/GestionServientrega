@@ -87,18 +87,33 @@ formPaquete.addEventListener('submit', function(e) {
 
 async function asignarRepartidor(codigo, selectElement) {
     const repartidor = selectElement.value;
-    const paquete = paquetes.find(p => p.codigo === codigo);
-
+    
+    // Buscar en todos los arrays
+    let paquete = paquetes.find(p => p.codigo === codigo);
+    let paqueteEnFiltrados = paquetesFiltradosGlobal.find(p => p.codigo === codigo);
+    
     if (repartidor && paquete) {
+        // 🔥 ACTUALIZAR EN TODOS LOS ARRAYS NECESARIOS
         paquete.repartidor = repartidor;
-        // 🔥 GUARDAR FECHA DE ASIGNACIÓN/REASIGNACIÓN
         paquete.fechaAsignacionRepartidor = new Date().toISOString();
+        
+        // Si también está en filtrados, actualizar ahí
+        if (paqueteEnFiltrados) {
+            paqueteEnFiltrados.repartidor = repartidor;
+            paqueteEnFiltrados.fechaAsignacionRepartidor = paquete.fechaAsignacionRepartidor;
+        }
         
         // Si es Repartidor 6 - Retiro Of., forzar retiro en oficina
         if (repartidor === "Repartidor 6 - Retiro Of.") {
             paquete.envio = "Retiro en oficina";
             paquete.direccion = "Retiro en oficina";
             paquete.destino = "No aplica";
+            
+            if (paqueteEnFiltrados) {
+                paqueteEnFiltrados.envio = "Retiro en oficina";
+                paqueteEnFiltrados.direccion = "Retiro en oficina";
+                paqueteEnFiltrados.destino = "No aplica";
+            }
         }
 
         // Si es Repartidor 4 -> pedimos ubicación
@@ -108,12 +123,15 @@ async function asignarRepartidor(codigo, selectElement) {
 
             if (ubicacion === "AL" || ubicacion === "SAN") {
                 paquete.destino = ubicacion;
+                if (paqueteEnFiltrados) paqueteEnFiltrados.destino = ubicacion;
             } else {
                 alert("Ubicación no válida, usando AL por defecto.");
                 paquete.destino = "AL";
+                if (paqueteEnFiltrados) paqueteEnFiltrados.destino = "AL";
             }
         }
 
+        // 🔥 ACTUALIZAR FIRESTORE
         const { db, updateDoc, doc } = window.firestore;
         const paqueteRef = doc(db, "paquetes", paquete.id);
         
@@ -130,8 +148,29 @@ async function asignarRepartidor(codigo, selectElement) {
         }
         
         await updateDoc(paqueteRef, datosActualizar);
-        actualizarTabla();
+        
+        // 🔥 FORZAR ACTUALIZACIÓN VISUAL INMEDIATA
+        actualizarSelectRepartidor(codigo, repartidor);
+        
+        // Opcional: pequeño retraso para asegurar la actualización
+        setTimeout(() => {
+            actualizarTabla();
+        }, 100);
     }
+}
+
+// 🔥 NUEVA FUNCIÓN PARA ACTUALIZAR SELECT ESPECÍFICO
+function actualizarSelectRepartidor(codigo, repartidor) {
+    const selects = document.querySelectorAll(`select.select-repartidor`);
+    selects.forEach(select => {
+        const row = select.closest('tr');
+        if (row) {
+            const codigoCell = row.cells[1].textContent.trim();
+            if (codigoCell === codigo) {
+                select.value = repartidor;
+            }
+        }
+    });
 }
 // Función para marcar como digitalizado
 async function marcarComoDigitalizado(codigo) {
@@ -406,6 +445,7 @@ function actualizarTabla() {
         if (paquete.envio === 'Entrega en dirección') {
             const select = document.createElement('select');
             select.className = 'select-repartidor';
+            select.dataset.codigo = paquete.codigo; // 🔥 AGREGAR DATASET
             select.innerHTML = `
                 <option value="">Seleccionar</option>
                 <option value="Repartidor 1">Repartidor 1</option>
@@ -415,42 +455,19 @@ function actualizarTabla() {
                 <option value="Repartidor 5">Repartidor 5</option>
                 <option value="Repartidor 6 - Retiro Of.">Repartidor 6 - Retiro Of.</option>
             `;
+            
             // Preseleccionar si ya tiene repartidor asignado
             if (paquete.repartidor) {
                 select.value = paquete.repartidor;
             }
-            // Contenedor para el segundo select (ubicación)
-            const ubicacionContainer = document.createElement("div");
-            select.addEventListener('change', async () => {
-                await asignarRepartidor(paquete.codigo, select);
-                // Si es Repartidor 4 -> mostrar segundo select
-                ubicacionContainer.innerHTML = ""; // limpiar antes de agregar
-                if (select.value === "Repartidor 4") {
-                    const ubicacionSelect = document.createElement("select");
-                    ubicacionSelect.innerHTML = `
-                        <option value="">Seleccionar ubicación</option>
-                        <option value="AL">AL</option>
-                        <option value="SAN">SAN</option>
-                    `;
-                    // Preseleccionar si ya tiene destino
-                    if (paquete.destino) {
-                        ubicacionSelect.value = paquete.destino;
-                    }
-                    ubicacionSelect.addEventListener("change", async () => {
-                        const ubicacion = ubicacionSelect.value;
-                        if (ubicacion) {
-                            paquete.destino = ubicacion;
-                            const { db, updateDoc, doc } = window.firestore;
-                            const paqueteRef = doc(db, "paquetes", paquete.id);
-                            await updateDoc(paqueteRef, { destino: ubicacion });
-                            actualizarTabla();
-                        }
-                    });
-                    ubicacionContainer.appendChild(ubicacionSelect);
-                }
+            
+            // 🔥 REMOVER EVENT LISTENERS ANTERIORES Y AGREGAR NUEVO
+            select.onchange = null; // Limpiar listeners anteriores
+            select.addEventListener('change', async (e) => {
+                await asignarRepartidor(paquete.codigo, e.target);
             });
+            
             repartidorCell.appendChild(select);
-            repartidorCell.appendChild(ubicacionContainer);
         } else {
             repartidorCell.textContent = 'N/A';
         }
