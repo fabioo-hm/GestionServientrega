@@ -666,26 +666,27 @@ async function cargarPaquetesFirestore() {
   try {
     const { db, collection, getDocs, query, where, orderBy } = window.firestore;
     
-    // Cargar TODOS los paquetes para poder identificar el último de cada código
+    // Cargar TODOS los paquetes
     const querySnapshot = await getDocs(collection(db, "paquetes"));
     paquetes = [];
     querySnapshot.forEach((doc) => {
       paquetes.push({ id: doc.id, ...doc.data() });
     });
     
-    // 🎯 Filtrar para mostrar solo el último de cada código
-    const codigosUnicos = new Map();
+    // 🎯 Filtrar solo los paquetes activos (activo: true o no definido, para mantener compatibilidad)
+    let paquetesActivos = paquetes.filter(p => p.activo !== false);
     
-    // Ordenar por fechaTimestamp descendente para obtener el más reciente primero
-    paquetes.sort((a, b) => {
+    // 🎯 Ordenar por fechaTimestamp descendente para obtener el más reciente primero
+    paquetesActivos.sort((a, b) => {
       const fechaA = a.fechaTimestamp?.toDate ? a.fechaTimestamp.toDate() : new Date(a.fechaTimestamp || a.fecha);
       const fechaB = b.fechaTimestamp?.toDate ? b.fechaTimestamp.toDate() : new Date(b.fechaTimestamp || b.fecha);
-      return fechaB - fechaA;
+      return fechaB - fechaA; // Orden descendente (más reciente primero)
     });
     
-    // Tomar solo el primero (más reciente) de cada código
+    // 🎯 Tomar solo el primero (más reciente) de cada código entre los activos
+    const codigosUnicos = new Map();
     const paquetesUnicos = [];
-    paquetes.forEach(paquete => {
+    paquetesActivos.forEach(paquete => {
       if (!codigosUnicos.has(paquete.codigo)) {
         codigosUnicos.set(paquete.codigo, true);
         paquetesUnicos.push(paquete);
