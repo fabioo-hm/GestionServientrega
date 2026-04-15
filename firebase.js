@@ -11,7 +11,8 @@ import {
   where,
   deleteDoc,
   getDoc,
-  orderBy
+  orderBy,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
@@ -31,7 +32,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // 🔹 Exponer globalmente
-window.firestore = { db, collection, addDoc, getDocs, updateDoc, doc, query, where, deleteDoc, getDoc, orderBy };
+window.firestore = { db, collection, addDoc, getDocs, updateDoc, doc, query, where, deleteDoc, getDoc, orderBy, writeBatch };
 window.firebaseAuth = auth;
 window.listenAuthChanges = (callback) => onAuthStateChanged(auth, callback);
 

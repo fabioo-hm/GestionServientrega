@@ -1410,6 +1410,338 @@ async function verHistorialCodigo(codigo) {
         alert("Error al cargar el historial");
     }
 }
+
+// Obtener paquetes por rango de fechaDigitalizacion (maneja DD/MM/YYYY y YYYY-MM-DD)
+async function obtenerPaquetesPorRangoFechaDigitalizacion(fechaInicio, fechaFin) {
+    const { db, collection, getDocs } = window.firestore;
+    const paquetesRef = collection(db, "paquetes");
+    const snapshot = await getDocs(paquetesRef);
+    const resultados = [];
+    
+    // Convertir fechas de input (YYYY-MM-DD) a objetos Date para comparar
+    const inicioDate = new Date(fechaInicio);
+    const finDate = new Date(fechaFin);
+    inicioDate.setHours(0, 0, 0, 0);
+    finDate.setHours(0, 0, 0, 0);
+    
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        let fechaDigitalizacion = data.fechaDigitalizacion;
+        if (!fechaDigitalizacion) return;
+        
+        // Convertir a objeto Date
+        let fechaDate = null;
+        if (fechaDigitalizacion.includes('/')) {
+            // Formato DD/MM/YYYY
+            const [day, month, year] = fechaDigitalizacion.split('/');
+            fechaDate = new Date(`${year}-${month}-${day}`);
+        } else if (fechaDigitalizacion.includes('-')) {
+            // Formato YYYY-MM-DD
+            fechaDate = new Date(fechaDigitalizacion);
+        }
+        
+        if (fechaDate && fechaDate >= inicioDate && fechaDate <= finDate) {
+            resultados.push({ id: doc.id, ...data });
+        }
+    });
+    return resultados;
+}
+
+// Previsualizar, generar backup y preparar eliminación
+window.previsualizarLimpieza = async function() {
+    const fechaInicio = document.getElementById('cleanupFechaInicio').value;
+    const fechaFin = document.getElementById('cleanupFechaFin').value;
+    if (!fechaInicio || !fechaFin) {
+        alert("❌ Debes seleccionar ambas fechas (DESDE y HASTA).");
+        return;
+    }
+    if (fechaInicio > fechaFin) {
+        alert("❌ La fecha 'DESDE' no puede ser mayor que 'HASTA'.");
+        return;
+    }
+
+    const previewDiv = document.getElementById('resultadoPrevisualizacion');
+    previewDiv.innerHTML = '<p>Cargando paquetes... ⏳</p>';
+
+    try {
+        const paquetes = await obtenerPaquetesPorRangoFechaDigitalizacion(fechaInicio, fechaFin);
+        if (paquetes.length === 0) {
+            previewDiv.innerHTML = '<div class="mensaje-advertencia">📭 No se encontraron paquetes digitalizados en el rango de fechas seleccionado.</div>';
+            return;
+        }
+
+        // Mostrar resumen y preview
+        let html = `
+            <div style="background: #e3f2fd; padding: 12px; border-radius: 6px;">
+                <strong>📊 Resumen:</strong> ${paquetes.length} paquetes digitalizados encontrados en el rango ${fechaInicio} → ${fechaFin}
+            </div>
+            <div class="preview-lista">
+                <h4>Vista previa (primeros 50):</h4>
+                <ul style="list-style: none; padding: 0;">
+        `;
+        const mostrar = paquetes.slice(0, 50);
+        mostrar.forEach(p => {
+            html += `<li class="preview-item">📦 <strong>${p.codigo}</strong> - Estado: ${p.estado || 'N/A'} - Digitalización: ${p.fechaDigitalizacion}</li>`;
+        });
+        if (paquetes.length > 50) html += `<li>... y ${paquetes.length - 50} más</li>`;
+        html += `</ul></div>`;
+
+        html += `
+            <div style="margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap;">
+                <button id="btnGenerarBackupClean" class="btn btn-backup">📀 Descargar Backup (Excel) de estos ${paquetes.length} paquetes</button>
+                <button id="btnEliminarMasivo" class="btn btn-peligro">🗑️ ELIMINAR PERMANENTEMENTE (${paquetes.length} paquetes)</button>
+            </div>
+            <div class="mensaje-advertencia" style="margin-top: 15px;">
+                ⚠️ <strong>ATENCIÓN:</strong> La eliminación es irreversible. Se recomienda descargar backup antes de eliminar.
+            </div>
+        `;
+        previewDiv.innerHTML = html;
+
+        document.getElementById('btnGenerarBackupClean').onclick = () => exportarBackupLimpieza(paquetes);
+        document.getElementById('btnEliminarMasivo').onclick = () => confirmarEliminacionMasiva(paquetes, fechaInicio, fechaFin);
+
+    } catch (error) {
+        console.error(error);
+        previewDiv.innerHTML = `<div class="mensaje-advertencia">❌ Error al cargar los paquetes: ${error.message}</div>`;
+    }
+};
+// Exportar backup a Excel
+function exportarBackupLimpieza(paquetesLista) {
+    if (!paquetesLista.length) {
+        alert("No hay paquetes para respaldar.");
+        return;
+    }
+    const data = paquetesLista.map(p => ({
+        'ID Firestore': p.id,
+        'Código': p.codigo,
+        'Piezas': p.piezas,
+        'Método de pago': p.pago,
+        'Tipo de envío': p.envio,
+        'Contenido': p.contenido,
+        'Destino': p.destino || 'N/A',
+        'Dirección': p.direccion,
+        'Repartidor': p.repartidor || 'Sin asignar',
+        'Intentos': p.intentos,
+        'Estado': p.estado,
+        'Fecha registro (original)': p.fecha,
+        'Fecha ingreso sistema': p.fechaIngreso || p.fecha,
+        'Fecha entrega': p.fechaEntrega || '',
+        'Fecha digitalización': p.fechaDigitalizacion || '',
+        'Registrador': p.registrador || 'N/A',
+        'Activo': p.activo !== false ? 'Sí' : 'No'
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Backup_eliminacion");
+    const fechaActual = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+    XLSX.writeFile(wb, `backup_eliminacion_${fechaActual}.xlsx`);
+    alert(`✅ Backup generado con ${paquetesLista.length} registros.`);
+}
+
+// Confirmación y eliminación masiva (sin contraseña adicional)
+async function confirmarEliminacionMasiva(paquetesLista, fechaInicio, fechaFin) {
+    if (!paquetesLista.length) {
+        alert("No hay paquetes para eliminar.");
+        return;
+    }
+
+    const confirmText = prompt(`⚠️ ELIMINACIÓN MASIVA ⚠️\nEstás a punto de borrar ${paquetesLista.length} paquetes de forma PERMANENTE.\nEscribe "CONFIRMAR ELIMINAR" para proceder:`);
+    if (confirmText !== "CONFIRMAR ELIMINAR") {
+        alert("Operación cancelada.");
+        return;
+    }
+
+    const previewDiv = document.getElementById('resultadoPrevisualizacion');
+    previewDiv.innerHTML = `<p>⏳ Eliminando ${paquetesLista.length} paquetes... Por favor espera.</p>`;
+
+    try {
+        const { db, deleteDoc, doc, writeBatch } = window.firestore;
+        let eliminados = 0;
+        const batchSize = 500;
+
+        for (let i = 0; i < paquetesLista.length; i += batchSize) {
+            const batch = writeBatch(db);
+            const lote = paquetesLista.slice(i, i + batchSize);
+            for (const paquete of lote) {
+                const paqueteRef = doc(db, "paquetes", paquete.id);
+                batch.delete(paqueteRef);
+
+                // Registrar eliminación individual en historial
+                await window.registrarHistorial(
+                    paquete.codigo,
+                    "limpieza_masiva",
+                    {
+                        motivo: `Eliminado por limpieza de rango ${fechaInicio} a ${fechaFin}`,
+                        fechaIngreso: paquete.fechaIngreso,
+                        datos_resumen: `Código: ${paquete.codigo}, Estado: ${paquete.estado}`
+                    },
+                    window.registrador || "ADMIN_LIMPIEZA"
+                );
+            }
+            await batch.commit();
+            eliminados += lote.length;
+            previewDiv.innerHTML = `<p>✅ Progreso: ${eliminados} de ${paquetesLista.length} eliminados...</p>`;
+        }
+
+        // Registrar evento global en historial
+        await window.registrarHistorial(
+            "LIMPIEZA_MASIVA",
+            "limpieza_rango",
+            {
+                rango: `${fechaInicio} - ${fechaFin}`,
+                total_eliminados: eliminados,
+                fecha_operacion: new Date().toISOString()
+            },
+            window.registrador || "ADMIN_SISTEMA"
+        );
+
+        previewDiv.innerHTML = `
+            <div style="background: #c8e6c9; padding: 15px; border-radius: 6px;">
+                ✅ <strong>Limpieza completada exitosamente.</strong><br>
+                Se eliminaron ${eliminados} paquetes en el rango ${fechaInicio} → ${fechaFin}.<br>
+                <button class="btn" onclick="location.reload()">🔄 Recargar página</button>
+            </div>
+        `;
+
+        // Recargar datos
+        if (typeof cargarPaquetesFirestore === 'function') {
+            setTimeout(() => cargarPaquetesFirestore(), 1500);
+        }
+        if (typeof cargarHistorialFirestore === 'function') {
+            cargarHistorialFirestore();
+        }
+
+    } catch (error) {
+        console.error("Error durante eliminación masiva:", error);
+        previewDiv.innerHTML = `<div class="mensaje-advertencia">❌ Error crítico: ${error.message}. Algunos paquetes no se eliminaron.</div>`;
+    }
+}
+
+// Asignar evento al botón de previsualización
+document.addEventListener('DOMContentLoaded', () => {
+    const btnPrevisualizar = document.getElementById('btnPrevisualizar');
+    if (btnPrevisualizar) {
+        btnPrevisualizar.onclick = window.previsualizarLimpieza;
+    }
+});
+
+
+// ==================================================
+// ELIMINACIÓN MASIVA DE PAQUETES DIGITALIZADOS EN 2025
+// ==================================================
+
+// Obtener paquetes con fechaDigitalizacion en el año especificado
+async function obtenerPaquetesDigitalizadosPorAnio(anio) {
+    const { db, collection, getDocs } = window.firestore;
+    const paquetesRef = collection(db, "paquetes");
+    const snapshot = await getDocs(paquetesRef);
+    const resultados = [];
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        const fechaDig = data.fechaDigitalizacion; // formato YYYY-MM-DD
+        if (fechaDig && fechaDig.startsWith(String(anio))) {
+            resultados.push({ id: doc.id, ...data });
+        }
+    });
+    return resultados;
+}
+
+// Función para eliminar todos los digitalizados de 2025
+window.eliminarDigitalizados2025 = async function() {
+    const anio = 2025;
+    const confirmText = prompt(`⚠️ ELIMINACIÓN MASIVA ⚠️\nEstás a punto de borrar TODOS los paquetes DIGITALIZADOS en el año ${anio}.\nEsta acción es PERMANENTE.\nEscribe "ELIMINAR DIGITALIZADOS 2025" para proceder:`);
+    if (confirmText !== "ELIMINAR DIGITALIZADOS 2025") {
+        alert("Operación cancelada.");
+        return;
+    }
+
+    const previewDiv = document.getElementById('resultadoPrevisualizacion');
+    previewDiv.innerHTML = `<p>🔍 Buscando paquetes digitalizados en ${anio}...</p>`;
+
+    try {
+        const paquetes = await obtenerPaquetesDigitalizadosPorAnio(anio);
+        if (paquetes.length === 0) {
+            previewDiv.innerHTML = `<div class="mensaje-advertencia">📭 No se encontraron paquetes digitalizados en ${anio}.</div>`;
+            return;
+        }
+
+        // Generar backup automático
+        exportarBackupLimpieza(paquetes);  // reutiliza tu función existente
+
+        const confirmFinal = confirm(`Se encontraron ${paquetes.length} paquetes digitalizados en ${anio}. Se generó un backup. ¿Deseas continuar con la eliminación?`);
+        if (!confirmFinal) {
+            previewDiv.innerHTML = `<div class="mensaje-advertencia">Operación cancelada por el usuario.</div>`;
+            return;
+        }
+
+        previewDiv.innerHTML = `<p>⏳ Eliminando ${paquetes.length} paquetes... Por favor espera.</p>`;
+
+        const { db, deleteDoc, doc, writeBatch } = window.firestore;
+        let eliminados = 0;
+        const batchSize = 500;
+
+        for (let i = 0; i < paquetes.length; i += batchSize) {
+            const batch = writeBatch(db);
+            const lote = paquetes.slice(i, i + batchSize);
+            for (const paquete of lote) {
+                const paqueteRef = doc(db, "paquetes", paquete.id);
+                batch.delete(paqueteRef);
+                await window.registrarHistorial(
+                    paquete.codigo,
+                    "limpieza_digitalizados_2025",
+                    {
+                        motivo: `Eliminado por limpieza de digitalizados año ${anio}`,
+                        fechaDigitalizacion: paquete.fechaDigitalizacion,
+                        fechaIngreso: paquete.fechaIngreso
+                    },
+                    window.registrador || "ADMIN_LIMPIEZA"
+                );
+            }
+            await batch.commit();
+            eliminados += lote.length;
+            previewDiv.innerHTML = `<p>✅ Progreso: ${eliminados} de ${paquetes.length} eliminados...</p>`;
+        }
+
+        await window.registrarHistorial(
+            "LIMPIEZA_DIGITALIZADOS_2025",
+            "limpieza_rango",
+            {
+                anio: anio,
+                total_eliminados: eliminados,
+                fecha_operacion: new Date().toISOString()
+            },
+            window.registrador || "ADMIN_SISTEMA"
+        );
+
+        previewDiv.innerHTML = `
+            <div style="background: #c8e6c9; padding: 15px; border-radius: 6px;">
+                ✅ <strong>Limpieza completada exitosamente.</strong><br>
+                Se eliminaron ${eliminados} paquetes digitalizados en ${anio}.<br>
+                <button class="btn" onclick="location.reload()">🔄 Recargar página</button>
+            </div>
+        `;
+
+        if (typeof cargarPaquetesFirestore === 'function') {
+            setTimeout(() => cargarPaquetesFirestore(), 1500);
+        }
+        if (typeof cargarHistorialFirestore === 'function') {
+            cargarHistorialFirestore();
+        }
+
+    } catch (error) {
+        console.error("Error durante eliminación:", error);
+        previewDiv.innerHTML = `<div class="mensaje-advertencia">❌ Error crítico: ${error.message}. Algunos paquetes no se eliminaron.</div>`;
+    }
+};
+
+// Asignar evento al botón
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btnEliminarDigitalizados2025');
+    if (btn) {
+        btn.onclick = window.eliminarDigitalizados2025;
+    }
+});
+
 // Exponer funciones al HTML
 window.openTab = openTab;
 window.aplicarFiltros = aplicarFiltros;

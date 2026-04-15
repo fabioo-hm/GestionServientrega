@@ -10,21 +10,72 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         /* Estilos adicionales para el nuevo filtro */
-        .filtro-tipo-fecha {
+.filtro-tipo-fecha {
             margin-top: 8px;
             padding: 8px;
             background-color: #f5f5f5;
             border-radius: 4px;
             border: 1px solid #ddd;
         }
-        
         .filtro-tipo-fecha label {
             margin-right: 15px;
             cursor: pointer;
         }
-        
-        .filtro-tipo-fecha input[type="radio"] {
-            margin-right: 5px;
+        .admin-only {
+            background-color: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+        .limpia-container {
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+        .rango-fechas {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-bottom: 20px;
+        }
+        .rango-fechas .form-group {
+            margin-bottom: 0;
+        }
+        .preview-lista {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            margin-top: 15px;
+            background: white;
+            padding: 10px;
+        }
+        .preview-item {
+            font-size: 12px;
+            padding: 4px;
+            border-bottom: 1px solid #eee;
+        }
+        .btn-peligro {
+            background-color: #d32f2f;
+            color: white;
+        }
+        .btn-peligro:hover {
+            background-color: #b71c1c;
+        }
+        .btn-backup {
+            background-color: #2c3e50;
+            color: white;
+        }
+        .mensaje-advertencia {
+            background-color: #ffeb3b;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .tab-button.admin-tab {
+            background-color: #ff9800;
+            color: white;
+        }
+        .tab-button.admin-tab:hover {
+            background-color: #f57c00;
         }
     </style>
 </head>
@@ -39,6 +90,7 @@
             <button class="tab-button" onclick="openTab('eliminar')">Eliminar Guía</button>
             <button class="tab-button" onclick="openTab('editar')">Editar Paquete</button>
             <button class="tab-button" onclick="openTab('historial')">Historial de Cambios</button>
+            <button class="tab-button" onclick="openTab('limpieza')">🧹 Limpieza BD</button>
         </div>
         
         <div id="registro" class="tab-content active">
@@ -441,6 +493,50 @@
                 </thead>
                 <tbody></tbody>
             </table>
+        </div>
+        <div id="limpieza" class="tab-content">
+                <h2>🧹 Limpieza Masiva de Base de Datos</h2>
+                <div class="limpia-container">
+                    <div class="mensaje-advertencia" id="adminWarningMsg">
+                        ⚠️ Esta sección es solo para administradores. Se eliminarán paquetes de forma PERMANENTE.
+                    </div>
+                    
+                    <div class="rango-fechas">
+                        <div class="form-group">
+                            <label>📅 Fecha de digitalización (DESDE):</label>
+                            <input type="date" id="cleanupFechaInicio">
+                        </div>
+                        <div class="form-group">
+                            <label>📅 Fecha de digitalización (HASTA):</label>
+                            <input type="date" id="cleanupFechaFin">
+                        </div>
+                        <div class="form-group">
+                            <button id="btnPrevisualizar" class="btn btn-backup">🔍 Previsualizar & Generar Backup</button>
+                        </div>
+                        <div class="rango-fechas">
+                        <div class="form-group">
+                            <button id="btnEliminarDigitalizados2025" class="btn btn-peligro" style="background-color: #b71c1c;">🗑️ ELIMINAR DIGITALIZADOS 2025</button>
+                        </div>
+                    </div>
+                    
+                    
+                    <div id="resultadoPrevisualizacion" style="margin-top: 20px;">
+                        <!-- Aquí se mostrará el resumen, tabla preview y botones de eliminación -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- El resto del HTML existente (tablas, etc) se mantiene igual -->
+            <div id="registro" class="tab-content active">
+                <!-- ... contenido existente ... -->
+            </div>
+            <div id="consulta" class="tab-content">
+                <!-- ... contenido existente ... -->
+            </div>
+            <div id="modificar" class="tab-content">...</div>
+            <div id="eliminar" class="tab-content">...</div>
+            <div id="editar" class="tab-content">...</div>
+            <div id="historial" class="tab-content">...</div>
         </div>
     </div>
     <script type="module" src="script.js"></script>
